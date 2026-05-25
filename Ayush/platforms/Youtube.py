@@ -7,7 +7,7 @@ import httpx
 import urllib.parse
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
-from AloneMusic import LOGGER
+from Ayush import LOGGER
 # Use environment variables for configuration
 API_URL = os.getenv("API_URL", "http://149.28.138.220:8080").rstrip("/")
 API_KEY = os.getenv("API_KEY", "ritesh_free_4ccd5108cabd4416281a80bc")
