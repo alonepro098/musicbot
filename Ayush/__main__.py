@@ -43,7 +43,7 @@ async def init():
         await Aayu.stream_call("https://files.catbox.moe/slt3lk.mp4")
     except NoActiveGroupCall:
         LOGGER("Ayush").error(
-            "Please turn on the videochat of your log group\channel.\n\nStopping Bot..."
+            "Please turn on the videochat of your log group\\channel.\n\nStopping Bot..."
         )
         exit()
     except:

@@ -1,7 +1,10 @@
 import socket
 import time
 
-import heroku3
+try:
+    import heroku3
+except ImportError:
+    heroku3 = None
 from pyrogram import filters
 
 import config
@@ -64,7 +67,10 @@ async def sudo():
 
 def heroku():
     global HAPP
-    if is_heroku:
+    if is_heroku():
+        if heroku3 is None:
+            LOGGER(__name__).warning("heroku3 package not installed.")
+            return
         if config.HEROKU_API_KEY and config.HEROKU_APP_NAME:
             try:
                 Heroku = heroku3.from_key(config.HEROKU_API_KEY)

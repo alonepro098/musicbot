@@ -19,3 +19,6 @@ async def AayuBin(text):
         return
     link = BASE + resp["message"]
     return link
+
+
+DilBin = AayuBin

@@ -122,7 +122,8 @@ async def get_thumb(videoid):
         )
 
         # ---------- BOTTOM INFO ----------
-        info_text = f"YouTube : {views} | Time : {duration} | Player : @Spotify_x_music_bot"
+        username = getattr(app, "username", None) or "Spotify_x_music_bot"
+        info_text = f"YouTube : {views} | Time : {duration} | Player : @{username}"
         info_w = draw.textlength(info_text, font=info_font)
 
         draw.text(

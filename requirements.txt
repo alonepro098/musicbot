@@ -1,6 +1,5 @@
 aiofiles
 aiohttp
-asyncio
 beautifulsoup4
 dnspython
 ffmpeg-python
@@ -23,5 +22,4 @@ tgcrypto
 unidecode
 yt-dlp
 youtube-search
-youtube-search-python
 py-yt-search
