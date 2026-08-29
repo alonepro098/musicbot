@@ -31,8 +31,8 @@ HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
 
 HEROKU_API_KEY = getenv("HEROKU_API_KEY")
 
-SHRUTI_API_URL = "https://api.shrutibots.site"
-SHRUTI_API_KEY = "ShrutiBotsBj3bsZPzdxPMfjFvnRxg"
+API_URL= "https://apisparrow.site"
+API_KEY= "sparrowALHk32sQQ0fGcTLymiTUwunR"
 
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
