@@ -10,7 +10,7 @@ from pyrogram.types import Message
 from Ayush import LOGGER
 
 # Use environment variables for configuration
-API_URL = os.getenv("API_URL", "https://web.riteshyt.in").rstrip("/")
+API_URL = os.getenv("API_URL", "https://yt.riteshyt.in").rstrip("/")
 API_KEY = os.getenv("API_KEY", "riteshfree5dba542ea4b84c3a0ac11b20")
 
 
