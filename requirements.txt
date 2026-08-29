@@ -10,7 +10,7 @@ httpx[http2]
 motor
 pillow
 psutil
-pytgcall
+py-tgcalls==0.9.7
 pykeyboard
 pyrofork
 python-dotenv
