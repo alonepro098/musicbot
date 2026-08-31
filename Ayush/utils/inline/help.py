@@ -11,7 +11,30 @@ def help_pannel(_, START: Union[bool, int] = None, page: int = 1):
         else [InlineKeyboardButton(text="🗑️ ᴄʟᴏsᴇ", callback_data="close")]
     )
 
-    if page == 2:
+    if page == 3:
+        menu = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(text="🎮 sᴏɴɢ ǫᴜɪᴢ", callback_data="help_callback hb23"),
+                    InlineKeyboardButton(text="👑 ᴠɪᴘ ɪɴᴛʀᴏ", callback_data="help_callback hb24"),
+                ],
+                [
+                    InlineKeyboardButton(text="🎙️ sʜᴀᴢᴀᴍ", callback_data="help_callback hb25"),
+                    InlineKeyboardButton(text="📱 ʀᴇᴇʟs & sʜᴏʀᴛs", callback_data="help_callback hb26"),
+                ],
+                [
+                    InlineKeyboardButton(text="🌙 sʟᴇᴇᴘ ᴛɪᴍᴇʀ", callback_data="help_callback hb27"),
+                ],
+                [
+                    InlineKeyboardButton(text="◀️ ᴘᴀɢᴇ 2", callback_data="help_page 2"),
+                    InlineKeyboardButton(text="🏠 ʜᴏᴍᴇ", callback_data="settingsback_helper"),
+                    InlineKeyboardButton(text="▶️ ᴘᴀɢᴇ 1", callback_data="help_page 1"),
+                ],
+                back_or_close,
+            ]
+        )
+
+    elif page == 2:
         menu = InlineKeyboardMarkup(
             [
                 [
@@ -40,7 +63,7 @@ def help_pannel(_, START: Union[bool, int] = None, page: int = 1):
                 [
                     InlineKeyboardButton(text="◀️ ᴘᴀɢᴇ 1", callback_data="help_page 1"),
                     InlineKeyboardButton(text="🏠 ʜᴏᴍᴇ", callback_data="settingsback_helper"),
-                    InlineKeyboardButton(text="▶️ ᴘᴀɢᴇ 1", callback_data="help_page 1"),
+                    InlineKeyboardButton(text="▶️ ᴘᴀɢᴇ 3", callback_data="help_page 3"),
                 ],
                 back_or_close,
             ]
@@ -65,7 +88,7 @@ def help_pannel(_, START: Union[bool, int] = None, page: int = 1):
                     InlineKeyboardButton(text="🛠️ ᴍᴀɪɴᴛ", callback_data="help_callback hb9"),
                 ],
                 [
-                    InlineKeyboardButton(text="◀️ ᴘᴀɢᴇ 2", callback_data="help_page 2"),
+                    InlineKeyboardButton(text="◀️ ᴘᴀɢᴇ 3", callback_data="help_page 3"),
                     InlineKeyboardButton(text="🏠 ʜᴏᴍᴇ", callback_data="settingsback_helper"),
                     InlineKeyboardButton(text="▶️ ᴘᴀɢᴇ 2", callback_data="help_page 2"),
                 ],
@@ -90,6 +113,7 @@ def private_help_panel(_):
             )
         ]
     ]
+
 
 
 

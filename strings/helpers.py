@@ -159,6 +159,35 @@ HELP_22 = """<blockquote><b>📻 <u>ʟɪᴠᴇ ʀᴀᴅɪᴏ & ɴᴇᴡs sᴛᴀ
 📻 <b><u>ᴘᴏᴘᴜʟᴀʀ sᴛᴀᴛɪᴏɴs:</u></b>
 Mirchi, Bollywood Love, Capital FM, Radio Today, English, Zee News, Aaj Tak, Air Raipur, Air Bilaspur</blockquote>"""
 
+HELP_23 = """<blockquote><b>🎮 <u>sᴏɴɢ ǫᴜɪᴢ & ᴛʀɪᴠɪᴀ</u></b>
+
+/songquiz ᴏʀ /guessthesong : sᴛᴀʀᴛ ᴀ ɢᴜᴇss-ᴛʜᴇ-sᴏɴɢ ᴄʜᴀʟʟᴇɴɢᴇ.
+/quizleaderboard : ᴠɪᴇᴡ ᴛᴏᴘ ǫᴜɪᴢ ᴄʜᴀᴍᴘɪᴏɴs.</blockquote>"""
+
+HELP_24 = """<blockquote><b>👑 <u>ᴠɪᴘ ᴇɴᴛʀʏ ᴛʜᴇᴍᴇ sᴏɴɢ</u></b>
+
+/setintro [song name] : sᴇᴛ ʏᴏᴜʀ ᴘᴇʀsᴏɴᴀʟ ᴠɪᴘ ᴇɴᴛʀᴀɴᴄᴇ ᴛʜᴇᴍᴇ.
+/myintro : ᴠɪᴇᴡ ʏᴏᴜʀ ᴄᴜʀʀᴇɴᴛ ᴇɴᴛʀʏ ᴛʜᴇᴍᴇ.
+/delintro : ᴅᴇʟᴇᴛᴇ ʏᴏᴜʀ ᴇɴᴛʀʏ ᴛʜᴇᴍᴇ.
+/intro [ᴏʀ reply to user] : ᴘʟᴀʏ ᴠɪᴘ ᴇɴᴛʀᴀɴᴄᴇ ᴀɴᴛʜᴇᴍ ɪɴ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ!</blockquote>"""
+
+HELP_25 = """<blockquote><b>🎙️ <u>sʜᴀᴢᴀᴍ / sᴏɴɢ ғɪɴᴅᴇʀ</u></b>
+
+/shazam [reply to voice / audio] : ɪᴅᴇɴᴛɪғʏ ᴀɴʏ sᴏɴɢ ғʀᴏᴍ ᴀᴜᴅɪᴏ ᴄʟɪᴘ.
+/whatsong : sᴀᴍᴇ ᴀs sʜᴀᴢᴀᴍ.</blockquote>"""
+
+HELP_26 = """<blockquote><b>📱 <u>ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs & sʜᴏʀᴛs</u></b>
+
+/reel [link] : sᴛʀᴇᴀᴍ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟ ᴀᴜᴅɪᴏ ᴅɪʀᴇᴄᴛʟʏ ɪɴ ᴠᴄ.
+/shorts [link] : sᴛʀᴇᴀᴍ ʏᴏᴜᴛᴜʙᴇ sʜᴏʀᴛs ᴀᴜᴅɪᴏ ɪɴ ᴠᴄ.</blockquote>"""
+
+HELP_27 = """<blockquote><b>🌙 <u>sᴍᴀʀᴛ sʟᴇᴇᴘ ᴛɪᴍᴇʀ</u></b>
+
+/sleeptimer [mins/hours] : sᴇᴛ ᴀᴜᴛᴏ-sᴛᴏᴘ ᴄᴏᴜɴᴛᴅᴏᴡɴ (ᴇ.ɢ. 30m, 1h).
+/canceltimer : ᴄᴀɴᴄᴇʟ ᴀᴄᴛɪᴠᴇ sʟᴇᴇᴘ ᴛɪᴍᴇʀ.
+/timerstatus : ᴠɪᴇᴡ ʀᴇᴍᴀɪɴɪɴɢ sʟᴇᴇᴘ ᴛɪᴍᴇʀ.</blockquote>"""
+
+
 
 
 
