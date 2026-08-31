@@ -26,11 +26,13 @@ from Ayush.utils.database import (
     get_loop,
     group_assistant,
     is_autoend,
+    is_autoplay,
     music_on,
     remove_active_chat,
     remove_active_video_chat,
     set_loop,
 )
+
 from Ayush.utils.exceptions import AssistantErr
 from Ayush.utils.formatters import check_duration, seconds_to_min, speed_converter
 from Ayush.utils.inline.play import stream_markup
@@ -341,14 +343,55 @@ class Call(PyTgCalls):
                 await set_loop(chat_id, loop)
             await auto_clean(popped)
             if not check:
-                await _clear_(chat_id)
-                return await client.leave_group_call(chat_id)
+                if await is_autoplay(chat_id) and popped:
+                    try:
+                        last_title = popped.get("title", "")
+                        from py_yt import VideosSearch
+                        search_query = f"{last_title} songs" if last_title else "romantic songs"
+                        results = VideosSearch(search_query, limit=6)
+                        res = await results.next()
+                        result_list = res.get("result", []) if res else []
+                        if result_list:
+                            chosen = None
+                            for item in result_list:
+                                if item.get("id") != popped.get("vidid"):
+                                    chosen = item
+                                    break
+                            if not chosen:
+                                chosen = result_list[0]
+                            
+                            vidid = chosen.get("id")
+                            rel_title = chosen.get("title", "AutoPlay Music")
+                            duration_min = chosen.get("duration", "3:30")
+                            from Ayush.utils.formatters import time_to_seconds
+                            duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
+                            orig_chat = popped.get("chat_id", chat_id)
+                            
+                            db[chat_id] = [{
+                                "title": rel_title,
+                                "dur": duration_min,
+                                "streamtype": "audio",
+                                "by": "⚡ ᴀᴜᴛᴏ-ᴘʟᴀʏ ᴀɪ",
+                                "chat_id": orig_chat,
+                                "file": f"vid_{vidid}",
+                                "vidid": vidid,
+                                "seconds": duration_sec,
+                                "played": 0,
+                            }]
+                            check = db.get(chat_id)
+                    except Exception:
+                        pass
+
+                if not check:
+                    await _clear_(chat_id)
+                    return await client.leave_group_call(chat_id)
         except:
             try:
                 await _clear_(chat_id)
                 return await client.leave_group_call(chat_id)
             except:
                 return
+
         else:
             queued = check[0]["file"]
             language = await get_lang(chat_id)

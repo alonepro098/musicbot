@@ -31,12 +31,14 @@ blacklist_db = mongodb
 nightmodedb = mongodb.nightmode
 afkdb = mongodb.afk
 pretenderdb = mongodb.pretender
+autoplaydb = mongodb.autoplay
 
 # Shifting to memory [mongo sucks often]
 active = []
 activevideo = []
 assistantdict = {}
 autoend = {}
+autoplay = {}
 count = {}
 cleanmode = []
 channelconnect = {}
@@ -49,6 +51,7 @@ playmode = {}
 playtype = {}
 skipmode = {}
 suggestion = {}
+
 
 
 async def get_assistant_number(chat_id: int) -> str:
@@ -715,5 +718,32 @@ async def set_queries(mode: int):
         mode = queries["mode"] + mode
     return await queriesdb.update_one(
         {"chat_id": chat_id}, {"$set": {"mode": mode}}, upsert=True
-    )        
+    )
+
+
+async def is_autoplay(chat_id: int) -> bool:
+    mode = autoplay.get(chat_id)
+    if mode is None:
+        user = await autoplaydb.find_one({"chat_id": chat_id})
+        if not user:
+            autoplay[chat_id] = False
+            return False
+        autoplay[chat_id] = True
+        return True
+    return mode
+
+
+async def autoplay_on(chat_id: int):
+    autoplay[chat_id] = True
+    user = await autoplaydb.find_one({"chat_id": chat_id})
+    if not user:
+        return await autoplaydb.insert_one({"chat_id": chat_id})
+
+
+async def autoplay_off(chat_id: int):
+    autoplay[chat_id] = False
+    user = await autoplaydb.find_one({"chat_id": chat_id})
+    if user:
+        return await autoplaydb.delete_one({"chat_id": chat_id})
+        
 
