@@ -36,9 +36,10 @@ API_KEY= "sparrowALHk32sQQ0fGcTLymiTUwunR"
 
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
-    "https://github.com/THEMOHMAYA/ayushxmusic",
+    "https://github.com/alonepro098/musicbot",
 )
 UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "main")
+
 GIT_TOKEN = getenv(
     "GIT_TOKEN", None
 )   
