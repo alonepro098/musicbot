@@ -12,8 +12,8 @@ from config import BANNED_USERS
 async def autoplay_command_handler(cli, message: Message, chat_id, _):
     if len(message.command) < 2:
         is_on = await is_autoplay(chat_id)
-        status_str = "🟢 <b>ᴇɴᴀʙʟᴇᴅ (ᴏɴ)</b>" if is_on else "🔴 <b>ᴅɪsᴀʙʟᴇᴅ (ᴏғғ)</b>"
-        btn_text = "🔴 ᴛᴜʀɴ ᴏғғ" if is_on else "🟢 ᴛᴜʀɴ ᴏɴ"
+        status_str = "<b>ᴇɴᴀʙʟᴇᴅ (ᴏɴ)</b>" if is_on else "<b>ᴅɪsᴀʙʟᴇᴅ (ᴏғғ)</b>"
+        btn_text = "ᴛᴜʀɴ ᴏғғ" if is_on else "ᴛᴜʀɴ ᴏɴ"
         btn_data = "AUTOPLAY_OFF" if is_on else "AUTOPLAY_ON"
         
         buttons = InlineKeyboardMarkup(
@@ -35,13 +35,13 @@ async def autoplay_command_handler(cli, message: Message, chat_id, _):
     if state in ["on", "enable", "activate", "true"]:
         await autoplay_on(chat_id)
         await message.reply_text(
-            "<blockquote>🟢 <b><u>ᴀᴜᴛᴏ-ᴘʟᴀʏ ᴇɴᴀʙʟᴇᴅ</u></b>\n\n"
+            "<blockquote><b><u>ᴀᴜᴛᴏ-ᴘʟᴀʏ ᴇɴᴀʙʟᴇᴅ</u></b>\n\n"
             "✨ <i>sᴍᴀʀᴛ ᴍᴏᴏᴅ & sɪᴍɪʟᴀʀ sᴏɴɢs ᴀᴜᴛᴏᴘʟᴀʏ ɪs ɴᴏᴡ ᴀᴄᴛɪᴠᴇ. ɴᴇᴠᴇʀ-ᴇɴᴅɪɴɢ ᴍᴜsɪᴄ ᴠɪʙᴇs !</i></blockquote>"
         )
     elif state in ["off", "disable", "deactivate", "false"]:
         await autoplay_off(chat_id)
         await message.reply_text(
-            "<blockquote>🔴 <b><u>ᴀᴜᴛᴏ-ᴘʟᴀʏ ᴅɪsᴀʙʟᴇᴅ</u></b>\n\n"
+            "<blockquote><b><u>ᴀᴜᴛᴏ-ᴘʟᴀʏ ᴅɪsᴀʙʟᴇᴅ</u></b>\n\n"
             "❌ <i>ᴀᴜᴛᴏ-ᴘʟᴀʏ sᴛᴏᴘᴘᴇᴅ. ᴛʜᴇ ʙᴏᴛ ᴡɪʟʟ ʟᴇᴀᴠᴇ ᴡʜᴇɴ ǫᴜᴇᴜᴇ ᴇɴᴅs.</i></blockquote>"
         )
     else:
@@ -56,16 +56,16 @@ async def autoplay_callback_handler(cli, CallbackQuery):
 
     if action_part == "ON":
         await autoplay_on(chat_id)
-        text = "🟢 <b>ᴀᴜᴛᴏ-ᴘʟᴀʏ ʜᴀs ʙᴇᴇɴ ᴇɴᴀʙʟᴇᴅ !</b>"
+        text = "<b>ᴀᴜᴛᴏ-ᴘʟᴀʏ ʜᴀs ʙᴇᴇɴ ᴇɴᴀʙʟᴇᴅ !</b>"
     elif action_part == "OFF":
         await autoplay_off(chat_id)
-        text = "🔴 <b>ᴀᴜᴛᴏ-ᴘʟᴀʏ ʜᴀs ʙᴇᴇɴ ᴅɪsᴀʙʟᴇᴅ !</b>"
+        text = "<b>ᴀᴜᴛᴏ-ᴘʟᴀʏ ʜᴀs ʙᴇᴇɴ ᴅɪsᴀʙʟᴇᴅ !</b>"
     else:
         # STATUS
         text = "💡 <i>ᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ᴛᴏ ᴛᴏɢɢʟᴇ ᴀᴜᴛᴏ-ᴘʟᴀʏ sᴛᴀᴛᴇ :</i>"
 
     is_on = await is_autoplay(chat_id)
-    btn_text = "🔴 ᴛᴜʀɴ ᴏғғ" if is_on else "🟢 ᴛᴜʀɴ ᴏɴ"
+    btn_text = "ᴛᴜʀɴ ᴏғғ" if is_on else "ᴛᴜʀɴ ᴏɴ"
     btn_data = f"AUTOPLAY_OFF|{chat_id}" if is_on else f"AUTOPLAY_ON|{chat_id}"
 
     buttons = InlineKeyboardMarkup(
@@ -76,6 +76,7 @@ async def autoplay_callback_handler(cli, CallbackQuery):
             ]
         ]
     )
+
     try:
         await CallbackQuery.edit_message_text(
             f"<blockquote>📻 <b><u>sᴍᴀʀᴛ ᴀᴜᴛᴏ-ᴘʟᴀʏ sʏsᴛᴇᴍ</u></b>\n\n"
