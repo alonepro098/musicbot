@@ -150,6 +150,16 @@ HELP_21 = """<blockquote><b>📻 <u>sᴍᴀʀᴛ ᴀᴜᴛᴏ-ᴘʟᴀʏ</u></b>
 
 ✨ <i>ᴡʜᴇɴ ᴏɴ, ᴛʜᴇ ʙᴏᴛ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴘʟᴀʏs sɪᴍɪʟᴀʀ ᴍᴏᴏᴅ/ɢᴇɴʀᴇ sᴏɴɢs (ʀᴏᴍᴀɴᴛɪᴄ, ʟᴏғɪ, ᴘᴀʀᴛʏ) ᴡɪᴛʜᴏᴜᴛ sᴛᴏᴘᴘɪɴɢ!</i></blockquote>"""
 
+HELP_22 = """<blockquote><b>📻 <u>ʟɪᴠᴇ ʀᴀᴅɪᴏ & ɴᴇᴡs sᴛᴀᴛɪᴏɴs</u></b>
+
+/radio : ᴏᴘᴇɴ ɪɴᴛᴇʀᴀᴄᴛɪᴠᴇ ʟɪᴠᴇ ʀᴀᴅɪᴏ sᴛᴀᴛɪᴏɴs ᴍᴇɴᴜ.
+/radio [station name] : sᴛʀᴇᴀᴍ ᴀ sᴘᴇᴄɪғɪᴄ ʀᴀᴅɪᴏ sᴛᴀᴛɪᴏɴ.
+/cradio [station name] : sᴛʀᴇᴀᴍ ʀᴀᴅɪᴏ ɪɴ ʟɪɴᴋᴇᴅ ᴄʜᴀɴɴᴇʟ.
+
+📻 <b><u>ᴘᴏᴘᴜʟᴀʀ sᴛᴀᴛɪᴏɴs:</u></b>
+Mirchi, Bollywood Love, Capital FM, Radio Today, English, Zee News, Aaj Tak, Air Raipur, Air Bilaspur</blockquote>"""
+
+
 
 
 

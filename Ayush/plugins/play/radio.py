@@ -8,7 +8,7 @@ from pyrogram.errors import (
     UserAlreadyParticipant,
     UserNotParticipant,
 )
-from pyrogram.types import Message
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from config import BANNED_USERS, adminlist
 from strings import get_string
@@ -175,10 +175,71 @@ async def radio(client, message: Message):
             return await mystic.edit_text(err)
         return await play_logs(message, streamtype="M3u8 or Index Link")
     else:
-        await message.reply(
-            f"ɢɪᴠᴇ ᴍᴇ ᴀ sᴛᴀᴛɪᴏɴ ɴᴀᴍᴇ ᴛᴏ ᴘʟᴀʏ ʀᴀᴅɪᴏ\nʙᴇʟᴏᴡ ᴀʀᴇ sᴏᴍᴇ sᴛᴀᴛɪᴏɴ ɴᴀᴍᴇ:\n{valid_stations}"
+        buttons = [
+            [
+                InlineKeyboardButton(text="📻 ᴍɪʀᴄʜɪ", callback_data="RADIO_PLAY|Mirchi"),
+                InlineKeyboardButton(text="📻 ʙᴏʟʟʏᴡᴏᴏᴅ ʟᴏᴠᴇ", callback_data="RADIO_PLAY|Bollywood Love"),
+            ],
+            [
+                InlineKeyboardButton(text="📻 ᴄᴀᴘɪᴛᴀʟ ғᴍ", callback_data="RADIO_PLAY|Capital FM"),
+                InlineKeyboardButton(text="📻 ʙᴏʟʟʏᴡᴏᴏᴅ", callback_data="RADIO_PLAY|Bollywood"),
+            ],
+            [
+                InlineKeyboardButton(text="📻 ʀᴀᴅɪᴏ ᴛᴏᴅᴀʏ", callback_data="RADIO_PLAY|Radio Today"),
+                InlineKeyboardButton(text="📻 ᴇɴɢʟɪsʜ", callback_data="RADIO_PLAY|English"),
+            ],
+            [
+                InlineKeyboardButton(text="📺 ᴢᴇᴇ ɴᴇᴡs", callback_data="RADIO_PLAY|Zee News"),
+                InlineKeyboardButton(text="📺 ᴀᴀᴊ ᴛᴀᴋ", callback_data="RADIO_PLAY|Aaj Tak"),
+            ],
+            [
+                InlineKeyboardButton(text="📻 ᴀɪʀ ʀᴀɪᴘᴜʀ", callback_data="RADIO_PLAY|Air Raipur"),
+                InlineKeyboardButton(text="📻 ᴀɪʀ ʙɪʟᴀsᴘᴜʀ", callback_data="RADIO_PLAY|Air Bilaspur"),
+            ],
+            [
+                InlineKeyboardButton(text="🗑️ ᴄʟᴏsᴇ", callback_data="close"),
+            ],
+        ]
+        await message.reply_text(
+            "<blockquote>📻 <b><u>ʟɪᴠᴇ ʀᴀᴅɪᴏ & ɴᴇᴡs sᴛᴀᴛɪᴏɴs</u></b>\n\n"
+            "✨ <i>ᴄʟɪᴄᴋ ᴀɴʏ sᴛᴀᴛɪᴏɴ ʙᴇʟᴏᴡ ᴛᴏ ɪɴsᴛᴀɴᴛʟʏ sᴛʀᴇᴀᴍ ʟɪᴠᴇ ɪɴ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ :</i>\n\n"
+            f"{valid_stations}</blockquote>",
+            reply_markup=InlineKeyboardMarkup(buttons),
         )
 
 
+@app.on_callback_query(filters.regex(r"^RADIO_PLAY\|") & ~BANNED_USERS)
+async def radio_callback_stream(client, CallbackQuery):
+    station_name = CallbackQuery.data.split("|")[1]
+    RADIO_URL = RADIO_STATION.get(station_name)
+    if not RADIO_URL:
+        return await CallbackQuery.answer("❌ Station not found!", show_alert=True)
+
+    chat_id = CallbackQuery.message.chat.id
+    language = await get_lang(chat_id)
+    _ = get_string(language)
+
+    mystic = await CallbackQuery.message.reply_text(f"<blockquote>📻 <b>sᴛᴀʀᴛɪɴɢ ʟɪᴠᴇ sᴛʀᴇᴀᴍ ғᴏʀ {station_name}...</b></blockquote>")
+    try:
+        await stream(
+            _,
+            mystic,
+            CallbackQuery.from_user.id,
+            RADIO_URL,
+            chat_id,
+            CallbackQuery.from_user.mention,
+            chat_id,
+            video=None,
+            streamtype="index",
+        )
+    except Exception as e:
+        ex_type = type(e).__name__
+        err = e if ex_type == "AssistantErr" else _["general_3"].format(ex_type)
+        return await mystic.edit_text(err)
+
+    await CallbackQuery.answer(f"▶️ Playing {station_name}")
+
+
 __MODULE__ = "Rᴀᴅɪᴏ"
-__HELP__ = f"\n/radio [sᴛᴀᴛɪᴏɴ ɴᴀᴍᴇ] - ᴛᴏ ᴘʟᴀʏ **ʀᴀᴅɪᴏ ɪɴ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ**\n\nʙᴇʟᴏᴡ ᴀʀᴇ sᴏᴍᴇ sᴛᴀᴛɪᴏɴ ɴᴀᴍᴇ:\n{valid_stations}"
+__HELP__ = f"<blockquote><b>📻 <u>ʟɪᴠᴇ ʀᴀᴅɪᴏ & ɴᴇᴡs sᴛᴀᴛɪᴏɴs</u></b>\n\n/radio [station name] : ᴘʟᴀʏ ʟɪᴠᴇ ʀᴀᴅɪᴏ ɪɴ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ.\n/cradio [station name] : ᴘʟᴀʏ ʟɪᴠᴇ ʀᴀᴅɪᴏ ɪɴ ʟɪɴᴋᴇᴅ ᴄʜᴀɴɴᴇʟ.\n\n<b><u>ᴀᴠᴀɪʟᴀʙʟᴇ sᴛᴀᴛɪᴏɴs:</u></b>\n{valid_stations}</blockquote>"
+
