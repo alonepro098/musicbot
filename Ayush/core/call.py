@@ -331,6 +331,88 @@ class Call(PyTgCalls):
             if users == 1:
                 autoend[chat_id] = datetime.now() + timedelta(minutes=1)
 
+AUTOPLAY_HISTORY = {}
+
+
+def _clean_autoplay_title(title: str) -> str:
+    import re
+    t = re.sub(r"\(.*?\)|\[.*?\]", "", title)
+    t = re.sub(r"(?i)\b(official|video|audio|lyrical|song|full video|hd|4k|remix|slowed|reverb|teaser|trailer|status)\b", "", t)
+    return " ".join(t.split()).strip()
+
+
+async def _get_smart_autoplay_track(chat_id: int, popped: dict):
+    from py_yt import VideosSearch
+    import random
+
+    if chat_id not in AUTOPLAY_HISTORY:
+        AUTOPLAY_HISTORY[chat_id] = set()
+
+    last_vid = popped.get("vidid")
+    if last_vid:
+        AUTOPLAY_HISTORY[chat_id].add(str(last_vid))
+
+    raw_title = popped.get("title", "")
+    clean_title = _clean_autoplay_title(raw_title)
+
+    queries = [
+        f"{clean_title} radio mix songs",
+        f"{clean_title} similar songs",
+        f"{clean_title} playlist jukebox",
+    ]
+    random.shuffle(queries)
+
+    chosen = None
+    for q in queries:
+        try:
+            results = VideosSearch(q, limit=12)
+            res = await results.next()
+            items = res.get("result", []) if res else []
+            candidates = []
+            for item in items:
+                v_id = item.get("id")
+                v_title = item.get("title", "")
+                if not v_id:
+                    continue
+                if str(v_id) in AUTOPLAY_HISTORY[chat_id]:
+                    continue
+                c_item_title = _clean_autoplay_title(v_title)
+                # Avoid exact same song repetition
+                if clean_title and (clean_title.lower() in c_item_title.lower() or c_item_title.lower() in clean_title.lower()):
+                    continue
+                dur = item.get("duration", "")
+                if dur and len(dur.split(":")) > 2:  # > 1 hour
+                    continue
+                candidates.append(item)
+
+            if candidates:
+                chosen = random.choice(candidates[:4])
+                break
+        except Exception:
+            continue
+
+    if not chosen:
+        fallback_queries = ["trending bollywood romantic songs", "punjabi hit songs", "lofi chill songs"]
+        try:
+            results = VideosSearch(random.choice(fallback_queries), limit=10)
+            res = await results.next()
+            items = res.get("result", []) if res else []
+            for item in items:
+                v_id = item.get("id")
+                if v_id and str(v_id) not in AUTOPLAY_HISTORY[chat_id]:
+                    chosen = item
+                    break
+        except Exception:
+            pass
+
+    if chosen:
+        AUTOPLAY_HISTORY[chat_id].add(str(chosen.get("id")))
+        if len(AUTOPLAY_HISTORY[chat_id]) > 60:
+            AUTOPLAY_HISTORY[chat_id].pop()
+        return chosen
+    return None
+
+
     async def change_stream(self, client, chat_id):
         check = db.get(chat_id)
         popped = None
@@ -345,28 +427,15 @@ class Call(PyTgCalls):
             if not check:
                 if await is_autoplay(chat_id) and popped:
                     try:
-                        last_title = popped.get("title", "")
-                        from py_yt import VideosSearch
-                        search_query = f"{last_title} songs" if last_title else "romantic songs"
-                        results = VideosSearch(search_query, limit=6)
-                        res = await results.next()
-                        result_list = res.get("result", []) if res else []
-                        if result_list:
-                            chosen = None
-                            for item in result_list:
-                                if item.get("id") != popped.get("vidid"):
-                                    chosen = item
-                                    break
-                            if not chosen:
-                                chosen = result_list[0]
-                            
+                        chosen = await _get_smart_autoplay_track(chat_id, popped)
+                        if chosen:
                             vidid = chosen.get("id")
                             rel_title = chosen.get("title", "AutoPlay Music")
                             duration_min = chosen.get("duration", "3:30")
                             from Ayush.utils.formatters import time_to_seconds
                             duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
                             orig_chat = popped.get("chat_id", chat_id)
-                            
+
                             db[chat_id] = [{
                                 "title": rel_title,
                                 "dur": duration_min,
@@ -386,6 +455,7 @@ class Call(PyTgCalls):
                     await _clear_(chat_id)
                     return await client.leave_group_call(chat_id)
         except:
+
             try:
                 await _clear_(chat_id)
                 return await client.leave_group_call(chat_id)
