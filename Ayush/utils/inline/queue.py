@@ -14,11 +14,15 @@ def queue_markup(
     not_dur = [
         [
             InlineKeyboardButton(
-                text="📜 ǫᴜᴇᴜᴇ ʟɪsᴛ",
+                text="ǫᴜᴇᴜᴇ ʟɪsᴛ",
                 callback_data=f"GetQueued {CPLAY}|{videoid}",
             ),
             InlineKeyboardButton(
-                text="🗑️ ᴄʟᴏsᴇ",
+                text="ʙᴀᴄᴋ",
+                callback_data="settingsback_helper",
+            ),
+            InlineKeyboardButton(
+                text="ᴄʟᴏsᴇ",
                 callback_data="close",
             ),
         ]
@@ -32,11 +36,15 @@ def queue_markup(
         ],
         [
             InlineKeyboardButton(
-                text="📜 ǫᴜᴇᴜᴇ ʟɪsᴛ",
+                text="ǫᴜᴇᴜᴇ ʟɪsᴛ",
                 callback_data=f"GetQueued {CPLAY}|{videoid}",
             ),
             InlineKeyboardButton(
-                text="🗑️ ᴄʟᴏsᴇ",
+                text="ʙᴀᴄᴋ",
+                callback_data="settingsback_helper",
+            ),
+            InlineKeyboardButton(
+                text="ᴄʟᴏsᴇ",
                 callback_data="close",
             ),
         ],
@@ -50,11 +58,11 @@ def queue_back_markup(_, CPLAY):
         [
             [
                 InlineKeyboardButton(
-                    text="🔙 ʙᴀᴄᴋ",
+                    text="ʙᴀᴄᴋ",
                     callback_data=f"queue_back_timer {CPLAY}",
                 ),
                 InlineKeyboardButton(
-                    text="🗑️ ᴄʟᴏsᴇ",
+                    text="ᴄʟᴏsᴇ",
                     callback_data="close",
                 ),
             ]
@@ -73,5 +81,3 @@ def aq_markup(_, chat_id):
         ],
     ]
     return buttons
-
-
