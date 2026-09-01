@@ -3,7 +3,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from Ayush import app
 
 
-def help_main_markup(_):
+def help_main_markup(_=None):
     return InlineKeyboardMarkup(
         [
             [
@@ -16,6 +16,11 @@ def help_main_markup(_):
             ],
         ]
     )
+
+
+def help_pannel(_=None, START=None, page=1):
+    return help_main_markup(_)
+
 
 
 def help_music_markup(_):

@@ -7,7 +7,7 @@ from pyrogram import filters
 load_dotenv()
 
 
-API_ID = int(getenv("API_ID", ""))
+API_ID = int(getenv("API_ID") or 0)
 
 API_HASH = getenv("API_HASH", "")
 
@@ -15,15 +15,16 @@ BOT_TOKEN = getenv("BOT_TOKEN", "")
 
 MONGO_DB_URI = getenv("MONGO_DB_URI", "")
 
-DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", 54000))
+DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT") or 54000)
 
 SONG_DOWNLOAD_DURATION = int(
-    getenv("SONG_DOWNLOAD_DURATION_LIMIT", "54000")
+    getenv("SONG_DOWNLOAD_DURATION_LIMIT") or 54000
 )
 
-LOGGER_ID = int(getenv("LOGGER_ID", ""))
+LOGGER_ID = int(getenv("LOGGER_ID") or 0)
 
-OWNER_ID = int(getenv("OWNER_ID", "5311223486"))
+OWNER_ID = int(getenv("OWNER_ID") or 5311223486)
+
 
 COMMAND_HANDLER = getenv("COMMAND_HANDLER", "! / .").split()
 
