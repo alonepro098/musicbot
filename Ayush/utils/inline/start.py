@@ -8,16 +8,16 @@ def start_panel(_):
     buttons = [
         [
             InlineKeyboardButton(
-                text="ADD ME TO YOUR GROUP",
+                text="ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
                 url=f"https://t.me/{app.username}?startgroup=true",
             ),
         ],
         [
-            InlineKeyboardButton(text="UPDATES", url=config.SUPPORT_CHANNEL),
-            InlineKeyboardButton(text="OWNER", user_id=config.OWNER_ID),
+            InlineKeyboardButton(text="ᴜᴘᴅᴀᴛᴇs", url=config.SUPPORT_CHANNEL),
+            InlineKeyboardButton(text="ᴏᴡɴᴇʀ", user_id=config.OWNER_ID),
         ],
         [
-            InlineKeyboardButton(text="HELP COMMANDS", callback_data="help_main"),
+            InlineKeyboardButton(text="ʜᴇʟᴘ ᴄᴏᴍᴍᴀɴᴅs", callback_data="help_main"),
         ],
     ]
     return buttons
@@ -27,20 +27,20 @@ def private_panel(_):
     buttons = [
         [
             InlineKeyboardButton(
-                text="ADD ME TO YOUR GROUP",
+                text="ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ",
                 url=f"https://t.me/{app.username}?startgroup=true",
             )
         ],
         [
-            InlineKeyboardButton(text="UPDATES", url=config.SUPPORT_CHANNEL),
-            InlineKeyboardButton(text="OWNER", user_id=config.OWNER_ID),
+            InlineKeyboardButton(text="ᴜᴘᴅᴀᴛᴇs", url=config.SUPPORT_CHANNEL),
+            InlineKeyboardButton(text="ᴏᴡɴᴇʀ", user_id=config.OWNER_ID),
         ],
         [
-            InlineKeyboardButton(text="HELP COMMANDS", callback_data="help_main"),
+            InlineKeyboardButton(text="ʜᴇʟᴘ ᴄᴏᴍᴍᴀɴᴅs", callback_data="help_main"),
         ],
         [
-            InlineKeyboardButton(text="SETTINGS", callback_data="settings_helper"),
-            InlineKeyboardButton(text="SUPPORT", url=config.SUPPORT_CHAT),
+            InlineKeyboardButton(text="sᴇᴛᴛɪɴɢs", callback_data="settings_helper"),
+            InlineKeyboardButton(text="sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT),
         ],
     ]
     return buttons
