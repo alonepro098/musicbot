@@ -1,106 +1,118 @@
-from typing import Union
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from Ayush import app
 
 
-def help_pannel(_, START: Union[bool, int] = None, page: int = 1):
-    back_or_close = (
-        [InlineKeyboardButton(text="🔙 ʙᴀᴄᴋ", callback_data="settings_back_helper")]
-        if START
-        else [InlineKeyboardButton(text="🗑️ ᴄʟᴏsᴇ", callback_data="close")]
+def help_main_markup(_):
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(text="MUSIC", callback_data="help_cat_music"),
+                InlineKeyboardButton(text="EXTRA", callback_data="help_cat_extra"),
+            ],
+            [
+                InlineKeyboardButton(text="BACK", callback_data="settingsback_helper"),
+                InlineKeyboardButton(text="CLOSE", callback_data="close"),
+            ],
+        ]
     )
 
-    if page == 3:
-        menu = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(text="🎮 sᴏɴɢ ǫᴜɪᴢ", callback_data="help_callback hb23"),
-                    InlineKeyboardButton(text="👑 ᴠɪᴘ ɪɴᴛʀᴏ", callback_data="help_callback hb24"),
-                ],
-                [
-                    InlineKeyboardButton(text="🎙️ sʜᴀᴢᴀᴍ", callback_data="help_callback hb25"),
-                    InlineKeyboardButton(text="📱 ʀᴇᴇʟs & sʜᴏʀᴛs", callback_data="help_callback hb26"),
-                ],
-                [
-                    InlineKeyboardButton(text="🌙 sʟᴇᴇᴘ ᴛɪᴍᴇʀ", callback_data="help_callback hb27"),
-                ],
-                [
-                    InlineKeyboardButton(text="◀️ ᴘᴀɢᴇ 2", callback_data="help_page 2"),
-                    InlineKeyboardButton(text="🏠 ʜᴏᴍᴇ", callback_data="settingsback_helper"),
-                    InlineKeyboardButton(text="▶️ ᴘᴀɢᴇ 1", callback_data="help_page 1"),
-                ],
-                back_or_close,
-            ]
-        )
 
-    elif page == 2:
-        menu = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(text="🏓 ᴘɪɴɢ", callback_data="help_callback hb10"),
-                    InlineKeyboardButton(text="🎵 ᴘʟᴀʏ", callback_data="help_callback hb11"),
-                    InlineKeyboardButton(text="🔀 sʜᴜғғʟᴇ", callback_data="help_callback hb12"),
-                ],
-                [
-                    InlineKeyboardButton(text="⏩ sᴇᴇᴋ", callback_data="help_callback hb13"),
-                    InlineKeyboardButton(text="📥 ᴅᴏᴡɴʟᴏᴀᴅ", callback_data="help_callback hb14"),
-                    InlineKeyboardButton(text="⚡ sᴘᴇᴇᴅ", callback_data="help_callback hb15"),
-                ],
-                [
-                    InlineKeyboardButton(text="🤖 ᴀɪ-ᴛᴏᴏʟs", callback_data="help_callback hb16"),
-                    InlineKeyboardButton(text="📜 ʟʏʀɪᴄs", callback_data="help_callback hb17"),
-                    InlineKeyboardButton(text="🎉 ғᴜɴ & ᴇxᴛʀᴀ", callback_data="help_callback hb18"),
-                ],
-                [
-                    InlineKeyboardButton(text="🎛️ ғɪʟᴛᴇʀs", callback_data="help_callback hb19"),
-                    InlineKeyboardButton(text="🎙️ ᴠᴄ ᴛᴏᴏʟs", callback_data="help_callback hb20"),
-                ],
-                [
-                    InlineKeyboardButton(text="📻 ᴀᴜᴛᴏ-ᴘʟᴀʏ", callback_data="help_callback hb21"),
-                    InlineKeyboardButton(text="📻 ʟɪᴠᴇ ʀᴀᴅɪᴏ", callback_data="help_callback hb22"),
-                ],
-                [
-                    InlineKeyboardButton(text="◀️ ᴘᴀɢᴇ 1", callback_data="help_page 1"),
-                    InlineKeyboardButton(text="🏠 ʜᴏᴍᴇ", callback_data="settingsback_helper"),
-                    InlineKeyboardButton(text="▶️ ᴘᴀɢᴇ 3", callback_data="help_page 3"),
-                ],
-                back_or_close,
-            ]
-        )
-
-    else:
-        menu = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(text="🛡️ ᴀᴅᴍɪɴ", callback_data="help_callback hb1"),
-                    InlineKeyboardButton(text="🔑 ᴀᴜᴛʜ", callback_data="help_callback hb2"),
-                    InlineKeyboardButton(text="📢 ʙʀᴏᴀᴅᴄᴀsᴛ", callback_data="help_callback hb3"),
-                ],
-                [
-                    InlineKeyboardButton(text="🚫 ʙʟ-ᴄʜᴀᴛ", callback_data="help_callback hb4"),
-                    InlineKeyboardButton(text="👤 ʙʟ-ᴜsᴇʀ", callback_data="help_callback hb5"),
-                    InlineKeyboardButton(text="📺 ᴄ-ᴘʟᴀʏ", callback_data="help_callback hb6"),
-                ],
-                [
-                    InlineKeyboardButton(text="🔨 ɢ-ʙᴀɴ", callback_data="help_callback hb7"),
-                    InlineKeyboardButton(text="🔁 ʟᴏᴏᴘ", callback_data="help_callback hb8"),
-                    InlineKeyboardButton(text="🛠️ ᴍᴀɪɴᴛ", callback_data="help_callback hb9"),
-                ],
-                [
-                    InlineKeyboardButton(text="◀️ ᴘᴀɢᴇ 3", callback_data="help_page 3"),
-                    InlineKeyboardButton(text="🏠 ʜᴏᴍᴇ", callback_data="settingsback_helper"),
-                    InlineKeyboardButton(text="▶️ ᴘᴀɢᴇ 2", callback_data="help_page 2"),
-                ],
-                back_or_close,
-            ]
-        )
-    return menu
-
-
-def help_back_markup(_):
+def help_music_markup(_):
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton(text="🔙 ʙᴀᴄᴋ ᴛᴏ ʜᴇʟᴘ", callback_data="settings_back_helper")]]
+        [
+            [
+                InlineKeyboardButton(text="PLAY", callback_data="help_callback hb11|music"),
+                InlineKeyboardButton(text="PAUSE / RESUME", callback_data="help_callback hb1|music"),
+            ],
+            [
+                InlineKeyboardButton(text="SKIP", callback_data="help_callback hb1|music"),
+                InlineKeyboardButton(text="STOP / END", callback_data="help_callback hb1|music"),
+            ],
+            [
+                InlineKeyboardButton(text="SEEK", callback_data="help_callback hb13|music"),
+                InlineKeyboardButton(text="SPEED", callback_data="help_callback hb15|music"),
+                InlineKeyboardButton(text="LOOP", callback_data="help_callback hb8|music"),
+            ],
+            [
+                InlineKeyboardButton(text="QUEUE", callback_data="help_callback hb12|music"),
+                InlineKeyboardButton(text="SHUFFLE", callback_data="help_callback hb12|music"),
+            ],
+            [
+                InlineKeyboardButton(text="DOWNLOAD", callback_data="help_callback hb14|music"),
+                InlineKeyboardButton(text="LYRICS", callback_data="help_callback hb17|music"),
+            ],
+            [
+                InlineKeyboardButton(text="FILTERS", callback_data="help_callback hb19|music"),
+                InlineKeyboardButton(text="AUTOPLAY", callback_data="help_callback hb21|music"),
+            ],
+            [
+                InlineKeyboardButton(text="RADIO", callback_data="help_callback hb22|music"),
+                InlineKeyboardButton(text="REELS", callback_data="help_callback hb26|music"),
+            ],
+            [
+                InlineKeyboardButton(text="VIP INTRO", callback_data="help_callback hb24|music"),
+                InlineKeyboardButton(text="VC TOOLS", callback_data="help_callback hb20|music"),
+            ],
+            [
+                InlineKeyboardButton(text="BACK", callback_data="help_main"),
+                InlineKeyboardButton(text="CLOSE", callback_data="close"),
+            ],
+        ]
+    )
+
+
+def help_extra_markup(_):
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(text="ADMIN", callback_data="help_callback hb1|extra"),
+                InlineKeyboardButton(text="AUTH", callback_data="help_callback hb2|extra"),
+            ],
+            [
+                InlineKeyboardButton(text="BROADCAST", callback_data="help_callback hb3|extra"),
+                InlineKeyboardButton(text="G-BAN", callback_data="help_callback hb7|extra"),
+            ],
+            [
+                InlineKeyboardButton(text="BL-CHAT", callback_data="help_callback hb4|extra"),
+                InlineKeyboardButton(text="BL-USER", callback_data="help_callback hb5|extra"),
+            ],
+            [
+                InlineKeyboardButton(text="C-PLAY", callback_data="help_callback hb6|extra"),
+                InlineKeyboardButton(text="MAINTENANCE", callback_data="help_callback hb9|extra"),
+            ],
+            [
+                InlineKeyboardButton(text="PING", callback_data="help_callback hb10|extra"),
+                InlineKeyboardButton(text="AI TOOLS", callback_data="help_callback hb16|extra"),
+            ],
+            [
+                InlineKeyboardButton(text="SONG QUIZ", callback_data="help_callback hb23|extra"),
+                InlineKeyboardButton(text="SHAZAM", callback_data="help_callback hb25|extra"),
+            ],
+            [
+                InlineKeyboardButton(text="SLEEP TIMER", callback_data="help_callback hb27|extra"),
+                InlineKeyboardButton(text="FUN & EXTRA", callback_data="help_callback hb18|extra"),
+            ],
+            [
+                InlineKeyboardButton(text="BACK", callback_data="help_main"),
+                InlineKeyboardButton(text="CLOSE", callback_data="close"),
+            ],
+        ]
+    )
+
+
+def help_back_markup(category="music"):
+    target = "help_cat_music" if category == "music" else "help_cat_extra"
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(text="BACK", callback_data=target),
+                InlineKeyboardButton(text="MAIN HELP", callback_data="help_main"),
+            ],
+            [
+                InlineKeyboardButton(text="CLOSE", callback_data="close"),
+            ]
+        ]
     )
 
 
@@ -108,12 +120,8 @@ def private_help_panel(_):
     return [
         [
             InlineKeyboardButton(
-                text="📖 ᴏᴘᴇɴ ʜᴇʟᴘ ᴍᴇɴᴜ",
+                text="OPEN HELP MENU",
                 url=f"https://t.me/{app.username}?start=help",
             )
         ]
     ]
-
-
-
-

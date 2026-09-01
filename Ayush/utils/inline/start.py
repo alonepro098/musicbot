@@ -8,13 +8,16 @@ def start_panel(_):
     buttons = [
         [
             InlineKeyboardButton(
-                text="⚡ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ ⚡",
+                text="ADD ME TO YOUR GROUP",
                 url=f"https://t.me/{app.username}?startgroup=true",
             ),
         ],
         [
-            InlineKeyboardButton(text="💬 sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT),
-            InlineKeyboardButton(text="📢 ᴜᴘᴅᴀᴛᴇs", url=config.SUPPORT_CHANNEL),
+            InlineKeyboardButton(text="UPDATES", url=config.SUPPORT_CHANNEL),
+            InlineKeyboardButton(text="OWNER", user_id=config.OWNER_ID),
+        ],
+        [
+            InlineKeyboardButton(text="HELP COMMANDS", callback_data="help_main"),
         ],
     ]
     return buttons
@@ -24,38 +27,20 @@ def private_panel(_):
     buttons = [
         [
             InlineKeyboardButton(
-                text="⚡ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ ⚡",
+                text="ADD ME TO YOUR GROUP",
                 url=f"https://t.me/{app.username}?startgroup=true",
             )
         ],
         [
-            InlineKeyboardButton(text="📖 ᴄᴏᴍᴍᴀɴᴅs", callback_data="settings_back_helper"),
-            InlineKeyboardButton(text="⚙️ sᴇᴛᴛɪɴɢs", callback_data="settings_helper"),
+            InlineKeyboardButton(text="UPDATES", url=config.SUPPORT_CHANNEL),
+            InlineKeyboardButton(text="OWNER", user_id=config.OWNER_ID),
         ],
         [
-            InlineKeyboardButton(text="📻 ʟɪᴠᴇ ʀᴀᴅɪᴏ", callback_data="help_callback hb22"),
-            InlineKeyboardButton(text="📻 ᴀᴜᴛᴏ-ᴘʟᴀʏ", callback_data="help_callback hb21"),
+            InlineKeyboardButton(text="HELP COMMANDS", callback_data="help_main"),
         ],
         [
-            InlineKeyboardButton(text="🎛️ ᴀᴜᴅɪᴏ ғɪʟᴛᴇʀs", callback_data="help_callback hb19"),
-            InlineKeyboardButton(text="🎙️ ᴠᴄ ᴛᴏᴏʟs", callback_data="help_callback hb20"),
+            InlineKeyboardButton(text="SETTINGS", callback_data="settings_helper"),
+            InlineKeyboardButton(text="SUPPORT", url=config.SUPPORT_CHAT),
         ],
-        [
-            InlineKeyboardButton(text="💬 sᴜᴘᴘᴏʀᴛ", url=config.SUPPORT_CHAT),
-            InlineKeyboardButton(text="📢 ᴄʜᴀɴɴᴇʟ", url=config.SUPPORT_CHANNEL),
-        ],
-        [
-            InlineKeyboardButton(text="👑 ᴅᴇᴠᴇʟᴏᴘᴇʀ", user_id=config.OWNER_ID),
-            InlineKeyboardButton(text="🚀 sᴏᴜʀᴄᴇ", callback_data="gib_source"),
-        ],
-        [
-            InlineKeyboardButton(text="✨ ʙᴏᴛ sᴛᴀᴛᴜs & ɪɴғᴏ", callback_data="bot_info_data"),
-        ],
-
     ]
     return buttons
-
-
-
-
-
