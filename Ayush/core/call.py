@@ -66,12 +66,12 @@ GENRE_DATABASE = {
         ],
         "artists": ["arijit singh", "atif aslam", "b praak", "jaani", "armaan malik", "mohit chauhan", "mustafa zahid", "kk"],
         "queries": [
-            "top hindi sad songs jukebox",
-            "arijit singh emotional heartbreak songs",
-            "bollywood sad love songs playlist",
-            "atif aslam sad songs collection",
-            "best bollywood crying emotional hits",
-            "sad romantic hindi songs mix"
+            "arijit singh sad song",
+            "atif aslam heartbreak sad song",
+            "best hindi sad love song",
+            "bollywood emotional sad song",
+            "b praak heartbreak song",
+            "kk emotional love song"
         ]
     },
     "romantic": {
@@ -86,12 +86,12 @@ GENRE_DATABASE = {
         ],
         "artists": ["arijit singh", "jubin nautiyal", "shreya ghoshal", "darshan raval", "neha kakkar", "stebin ben", "vishal mishra"],
         "queries": [
-            "bollywood romantic love songs jukebox",
-            "latest hindi romantic songs playlist",
-            "jubin nautiyal love hits",
-            "best romantic love songs collection",
-            "arijit singh romantic hits mix",
-            "sweet acoustic love songs hindi"
+            "latest bollywood romantic love song",
+            "jubin nautiyal romantic song",
+            "arijit singh sweet love song",
+            "shreya ghoshal romantic song",
+            "darshan raval love song",
+            "trending hindi romantic song"
         ]
     },
     "party": {
@@ -106,12 +106,11 @@ GENRE_DATABASE = {
         ],
         "artists": ["yo yo honey singh", "badshah", "guru randhawa", "mika singh", "tony kakkar", "hardy sandhu", "raftaar"],
         "queries": [
-            "bollywood party dance hits jukebox",
-            "punjabi club party bangers",
-            "latest hindi dance songs playlist",
-            "honey singh badshah party hits",
-            "club dj mashup dance songs bollywood",
-            "wedding dance party songs hindi"
+            "bollywood party dance song",
+            "honey singh hit party song",
+            "badshah club dance song",
+            "guru randhawa party song",
+            "latest hindi club dance song"
         ]
     },
     "punjabi": {
@@ -124,41 +123,39 @@ GENRE_DATABASE = {
         ],
         "artists": ["sidhu moosewala", "karan aujla", "diljit dosanjh", "ap dhillon", "shubh", "amrit maan", "jordan sandhu"],
         "queries": [
-            "punjabi top hits karan aujla sidhu moosewala",
-            "latest punjabi hype bangers playlist",
-            "shubh ap dhillon vibe songs",
-            "diljit dosanjh hit songs collection",
-            "trending punjabi car songs"
+            "karan aujla hit song",
+            "sidhu moosewala song",
+            "shubh new song",
+            "ap dhillon song",
+            "diljit dosanjh hit song"
         ]
     },
     "lofi": {
         "keywords": ["lofi", "slowed", "reverb", "chill", "midnight", "aesthetic", "relax", "sleep", "study", "beats", "peaceful", "night"],
         "artists": ["lofi", "chill", "aesthetic", "vibe"],
         "queries": [
-            "hindi lofi aesthetic chill mix",
-            "midnight bollywood slowed reverb songs",
-            "hindi lofi songs to sleep study",
-            "aesthetic peaceful hindi songs"
+            "hindi lofi slowed reverb song",
+            "aesthetic peaceful hindi song",
+            "bollywood midnight lofi song"
         ]
     },
     "devotional": {
         "keywords": ["bhajan", "aarti", "chalisa", "krishna", "ram", "shiva", "hanuman", "mata", "radha", "shyam", "mahadev", "ganesh", "devotional", "bhakti"],
         "artists": ["anup jalota", "gulshan kumar", "anuradha paudwal", "jubin nautiyal bhakti", "lakhbir singh lakha", "hansraj raghuwanshi"],
         "queries": [
-            "top hindi devotional bhajans",
-            "mahadev shiv devotional songs",
-            "krishna bhajan peaceful collection",
-            "hanuman chalisa bhajans jukebox"
+            "top hindi devotional bhajan song",
+            "mahadev shiv bhajan song",
+            "peaceful krishna bhajan song"
         ]
     },
     "retro": {
         "keywords": ["90s", "80s", "70s", "retro", "old", "evergreen", "classic", "kishore kumar", "lata mangeshkar", "mohd rafi", "mukesh", "rd burman", "kumar sanu", "alka yagnik", "udit narayan"],
         "artists": ["kumar sanu", "alka yagnik", "udit narayan", "kishore kumar", "lata mangeshkar", "mohammad rafi", "asha bhosle", "rd burman"],
         "queries": [
-            "90s bollywood evergreen hits jukebox",
-            "kumar sanu alka yagnik udit narayan hits",
-            "golden 70s 80s kishore kumar romantic songs",
-            "evergreen classic old hindi songs"
+            "kumar sanu 90s romantic song",
+            "alka yagnik evergreen song",
+            "kishore kumar classic hit song",
+            "udit narayan romantic song"
         ]
     }
 }
@@ -186,7 +183,7 @@ def _detect_song_genre(title: str) -> str:
             if art in t_lower:
                 return genre
 
-    return "romantic"  # default mood
+    return "romantic"
 
 
 async def _get_smart_autoplay_track(chat_id: int, popped: dict):
@@ -203,13 +200,20 @@ async def _get_smart_autoplay_track(chat_id: int, popped: dict):
     raw_title = popped.get("title", "")
     clean_title = _clean_autoplay_title(raw_title)
 
+    is_compilation = any(k in raw_title.lower() for k in ["jukebox", "compilation", "playlist", "all songs", "full album", "non stop", "1 hour"])
+
     detected_genre = _detect_song_genre(raw_title)
     genre_info = GENRE_DATABASE.get(detected_genre, GENRE_DATABASE["romantic"])
 
     queries = list(genre_info["queries"])
     if clean_title:
-        queries.insert(0, f"{clean_title} similar genre songs")
+        queries.insert(0, f"{clean_title} single song")
     random.shuffle(queries)
+
+    compilation_blacklist = [
+        "jukebox", "full album", "all songs", "non stop", "1 hour", "2 hour",
+        "audio jukebox", "video jukebox", "top 10", "top 20", "top 50", "mashup of"
+    ]
 
     chosen = None
     for q in queries:
@@ -225,13 +229,28 @@ async def _get_smart_autoplay_track(chat_id: int, popped: dict):
                     continue
                 if str(v_id) in AUTOPLAY_HISTORY[chat_id]:
                     continue
+                
+                v_title_lower = v_title.lower()
+                dur = item.get("duration", "")
+                
+                # If original was a normal single song, strictly enforce single song rules
+                if not is_compilation:
+                    if any(bad in v_title_lower for bad in compilation_blacklist):
+                        continue
+                    if not dur or dur.count(":") != 1:  # reject multi-hour (e.g. 1:20:15) or no duration
+                        continue
+                    try:
+                        dur_mins = int(dur.split(":")[0])
+                        if dur_mins < 1 or dur_mins >= 8:  # single songs are between 1 and 8 mins
+                            continue
+                    except Exception:
+                        continue
+
                 c_item_title = _clean_autoplay_title(v_title)
                 # Avoid exact same song repetition
                 if clean_title and (clean_title.lower() in c_item_title.lower() or c_item_title.lower() in clean_title.lower()):
                     continue
-                dur = item.get("duration", "")
-                if dur and len(dur.split(":")) > 2:  # skip long compilations > 1 hour
-                    continue
+
                 candidates.append(item)
 
             if candidates:
@@ -241,14 +260,15 @@ async def _get_smart_autoplay_track(chat_id: int, popped: dict):
             continue
 
     if not chosen:
-        fallback_queries = ["trending bollywood romantic songs", "punjabi hit songs", "lofi chill songs"]
+        fallback_queries = ["arijit singh romantic song", "karan aujla hit song", "hindi lofi song"]
         try:
             results = VideosSearch(random.choice(fallback_queries), limit=10)
             res = await results.next()
             items = res.get("result", []) if res else []
             for item in items:
                 v_id = item.get("id")
-                if v_id and str(v_id) not in AUTOPLAY_HISTORY[chat_id]:
+                dur = item.get("duration", "")
+                if v_id and str(v_id) not in AUTOPLAY_HISTORY[chat_id] and dur and dur.count(":") == 1:
                     chosen = item
                     break
         except Exception:
@@ -260,6 +280,7 @@ async def _get_smart_autoplay_track(chat_id: int, popped: dict):
             AUTOPLAY_HISTORY[chat_id].pop()
         return chosen
     return None
+
 
 
 

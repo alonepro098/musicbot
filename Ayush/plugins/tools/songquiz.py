@@ -8,7 +8,7 @@ import yt_dlp
 
 from Ayush import app
 from Ayush.core.call import Aayu
-from Ayush.utils.database import get_lang, is_active_chat
+from Ayush.utils.database import get_lang, is_active_chat, group_assistant
 from strings import get_string
 from config import BANNED_USERS
 
@@ -63,36 +63,89 @@ ACTIVE_QUIZZES = {}
 
 def _download_5s_clip(link: str, output_path: str):
     os.makedirs("cache", exist_ok=True)
-    temp_full = f"cache/temp_quiz_{random.randint(1000, 9999)}.mp3"
     
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": temp_full,
-        "geo_bypass": True,
-        "quiet": True,
-        "no_warnings": True,
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "128",
-            }
-        ],
-    }
-    
+    # 1. Fast direct streaming extraction
     try:
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "quiet": True,
+            "no_warnings": True,
+            "geo_bypass": True,
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([link])
-            
-        # Cut exactly 5 seconds (from 0:30 hook or from beginning) using ffmpeg
-        if os.path.exists(temp_full):
-            os.system(f'ffmpeg -y -ss 00:00:30 -t 5 -i "{temp_full}" -acodec copy "{output_path}"')
-            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
-                os.system(f'ffmpeg -y -t 5 -i "{temp_full}" -acodec copy "{output_path}"')
-            if os.path.exists(temp_full):
-                os.remove(temp_full)
+            info = ydl.extract_info(link, download=False)
+            stream_url = info.get("url")
+            if stream_url:
+                os.system(f'ffmpeg -y -ss 00:00:30 -t 5 -i "{stream_url}" -vn -c:a libmp3lame -b:a 128k "{output_path}"')
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 3000:
+                    return True
+                # Fallback to 00:00:05
+                os.system(f'ffmpeg -y -t 5 -i "{stream_url}" -vn -c:a libmp3lame -b:a 128k "{output_path}"')
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 3000:
+                    return True
     except Exception:
         pass
+
+    # 2. Section download fallback
+    try:
+        sec_opts = {
+            "format": "bestaudio/best",
+            "outtmpl": output_path,
+            "quiet": True,
+            "no_warnings": True,
+            "geo_bypass": True,
+            "download_ranges": yt_dlp.utils.download_range_func(None, [(30, 35)]),
+            "force_keyframes_at_cuts": True,
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "128",
+                }
+            ],
+        }
+        with yt_dlp.YoutubeDL(sec_opts) as ydl:
+            ydl.download([link])
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 3000:
+            return True
+    except Exception:
+        pass
+
+    # 3. Full download & trim fallback
+    temp_full = f"cache/temp_{random.randint(1000, 9999)}"
+    try:
+        full_opts = {
+            "format": "bestaudio/best",
+            "outtmpl": f"{temp_full}.%(ext)s",
+            "quiet": True,
+            "no_warnings": True,
+            "geo_bypass": True,
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "128",
+                }
+            ],
+        }
+        with yt_dlp.YoutubeDL(full_opts) as ydl:
+            ydl.download([link])
+        
+        real_temp = f"{temp_full}.mp3"
+        if os.path.exists(real_temp):
+            os.system(f'ffmpeg -y -ss 00:00:30 -t 5 -i "{real_temp}" -c:a libmp3lame -b:a 128k "{output_path}"')
+            if not os.path.exists(output_path) or os.path.getsize(output_path) < 3000:
+                os.system(f'ffmpeg -y -t 5 -i "{real_temp}" -c:a libmp3lame -b:a 128k "{output_path}"')
+            try:
+                os.remove(real_temp)
+            except Exception:
+                pass
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 3000:
+                return True
+    except Exception:
+        pass
+
+    return os.path.exists(output_path) and os.path.getsize(output_path) > 3000
 
 
 async def start_vc_quiz(chat_id: int, user_id: int, user_name: str, message: Message = None):
@@ -104,7 +157,7 @@ async def start_vc_quiz(chat_id: int, user_id: int, user_name: str, message: Mes
     items = res.get("result", [])
     if not items:
         if message:
-            return await message.reply_text("❌ <i>Failed to fetch song from YouTube. Try again!</i>")
+            return await message.reply_text("❌ <i>Failed to search song on YouTube. Please try again!</i>")
         return
 
     track = items[0]
@@ -114,11 +167,11 @@ async def start_vc_quiz(chat_id: int, user_id: int, user_name: str, message: Mes
 
     quiz_audio_path = f"cache/quiz_{chat_id}_{random.randint(100, 999)}.mp3"
 
-    # Download 5s audio clip in background executor
+    # Download 5s audio clip in background thread
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _download_5s_clip, song_link, quiz_audio_path)
+    success = await loop.run_in_executor(None, _download_5s_clip, song_link, quiz_audio_path)
 
-    if not os.path.exists(quiz_audio_path):
+    if not success or not os.path.exists(quiz_audio_path):
         if message:
             return await message.reply_text("❌ <i>Could not extract 5-second audio snippet. Please try again!</i>")
         return
@@ -134,13 +187,13 @@ async def start_vc_quiz(chat_id: int, user_id: int, user_name: str, message: Mes
     # Play 5-second tune in VC
     try:
         if await is_active_chat(chat_id):
-            assistant = await Aayu.group_assistant(chat_id) if hasattr(Aayu, 'group_assistant') else Aayu.one
+            assistant = await group_assistant(Aayu, chat_id)
             from pytgcalls.types.input_stream import AudioPiped
             from pytgcalls.types.input_stream.quality import HighQualityAudio
             await assistant.change_stream(chat_id, AudioPiped(quiz_audio_path, audio_parameters=HighQualityAudio()))
         else:
             await Aayu.join_call(chat_id, chat_id, quiz_audio_path, video=None)
-    except Exception as e:
+    except Exception:
         pass
 
     buttons = InlineKeyboardMarkup(
@@ -165,7 +218,7 @@ async def start_vc_quiz(chat_id: int, user_id: int, user_name: str, message: Mes
     if message:
         await message.reply_text(caption, reply_markup=buttons)
 
-    # Automatically clean 5-second file after 15 seconds
+    # Clean 5-second file after 15 seconds
     await asyncio.sleep(15)
     if os.path.exists(quiz_audio_path):
         try:
@@ -176,7 +229,7 @@ async def start_vc_quiz(chat_id: int, user_id: int, user_name: str, message: Mes
 
 @app.on_message(filters.command(["songquiz", "musicquiz", "guessthesong"]) & filters.group & ~BANNED_USERS)
 async def song_quiz_command(client, message: Message):
-    m = await message.reply_text("<blockquote>🎮 <i>Starting 5-second VC song quiz... Joining Voice Chat...</i></blockquote>")
+    m = await message.reply_text("<blockquote>🎮 <i>Loading 5-second VC song quiz tune... Please wait...</i></blockquote>")
     await start_vc_quiz(message.chat.id, message.from_user.id, message.from_user.first_name, message)
     try:
         await m.delete()

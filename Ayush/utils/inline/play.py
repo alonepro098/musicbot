@@ -68,7 +68,6 @@ def stream_markup_timer(_, chat_id, played, dur):
         ],
         [
             InlineKeyboardButton(text="ᴀᴜᴛᴏ-ᴘʟᴀʏ", callback_data=f"AUTOPLAY_STATUS|{chat_id}"),
-            InlineKeyboardButton(text="sᴘᴇᴇᴅ", callback_data=f"SpeedUp|{chat_id}"),
             InlineKeyboardButton(text="ᴄʟᴏsᴇ", callback_data="close"),
         ],
     ]
@@ -86,7 +85,6 @@ def stream_markup(_, chat_id):
         ],
         [
             InlineKeyboardButton(text="ᴀᴜᴛᴏ-ᴘʟᴀʏ", callback_data=f"AUTOPLAY_STATUS|{chat_id}"),
-            InlineKeyboardButton(text="sᴘᴇᴇᴅ", callback_data=f"SpeedUp|{chat_id}"),
             InlineKeyboardButton(text="ᴄʟᴏsᴇ", callback_data="close"),
         ],
     ]
