@@ -52,12 +52,141 @@ async def _clear_(chat_id):
 
 AUTOPLAY_HISTORY = {}
 
+GENRE_DATABASE = {
+    "sad": {
+        "keywords": [
+            "tum hi ho", "channa mereya", "agar tum saath ho", "hamari adhuri kahani", "bekhayali",
+            "tera chehra", "tujhe bhula diya", "judai", "bewafa", "dard", "sad", "alone",
+            "broken", "heartbreak", "emotional", "crying", "rona", "yaad", "tanhai", "bhula dena",
+            "kabira", "mana ki hum yaar nahi", "lo maan liya", "hasi ban gaye", "phir bhi tumko chaahunga",
+            "khairiyat", "kaash", "ae dil hai mushkil", "main dhoondne ko", "tera zikr", "alvida",
+            "bhula na sako ge", "dua", "judaai", "jag ghoomeya", "dil de diya hai", "thodi jagah",
+            "pachtaoge", "filhall", "lut gaye", "qismat", "bedardi se pyaar ka", "dil galti kar baitha",
+            "mile ho tum humko", "muskurane", "sunn raha hai", "mat aazma re", "saaware", "dil tod ke"
+        ],
+        "artists": ["arijit singh", "atif aslam", "b praak", "jaani", "armaan malik", "mohit chauhan", "mustafa zahid", "kk"],
+        "queries": [
+            "top hindi sad songs jukebox",
+            "arijit singh emotional heartbreak songs",
+            "bollywood sad love songs playlist",
+            "atif aslam sad songs collection",
+            "best bollywood crying emotional hits",
+            "sad romantic hindi songs mix"
+        ]
+    },
+    "romantic": {
+        "keywords": [
+            "wajah tum ho", "kesariya", "raataan lambiyan", "tum se hi", "pehli nazar",
+            "dil diya gallan", "tera ban jaunga", "apna bana le", "o maahi", "satranga",
+            "samjhawan", "ishq", "pyaar", "love", "romantic", "mohabbat", "humsafar", "dilbar",
+            "khuda jaane", "tera hone laga hoon", "peeloon", "tum jo aaye", "jeene laga hoon",
+            "bol do na zara", "sanware", "heeriye", "ve kamleya", "pal", "suno na sangemarmar",
+            "kaun tujhe", "dheere dheere", "subhanallah", "mast magan", "nazm nazm", "hawayein",
+            "dil sambhal ja zara", "raabta", "gerua", "janib", "soch na sake", "dil jhoom", "pehle bhi main"
+        ],
+        "artists": ["arijit singh", "jubin nautiyal", "shreya ghoshal", "darshan raval", "neha kakkar", "stebin ben", "vishal mishra"],
+        "queries": [
+            "bollywood romantic love songs jukebox",
+            "latest hindi romantic songs playlist",
+            "jubin nautiyal love hits",
+            "best romantic love songs collection",
+            "arijit singh romantic hits mix",
+            "sweet acoustic love songs hindi"
+        ]
+    },
+    "party": {
+        "keywords": [
+            "abhi toh party shuru hui hai", "kala chashma", "kar gayi chull", "garmi", "badtameez dil",
+            "sheila ki jawani", "munni badnam", "hookah bar", "dj", "party", "dance", "club",
+            "bhangra", "sharab", "alcohol", "nach", "thumka", "daru", "remix", "mashup",
+            "gaddi red thriller", "coca cola", "makhna", "lut gaye remix", "sauda khara khara",
+            "hauli hauli", "chote chote peg", "dil chori", "bom diggy", "gallan kardi", "buzz",
+            "swag se swagat", "high rated gabru", "lahore", "proper patola", "coka", "tauba tauba",
+            "aankh marey", "morni banke", "ghungroo", "nashe si chadh gayi", "dilliwali girlfriend"
+        ],
+        "artists": ["yo yo honey singh", "badshah", "guru randhawa", "mika singh", "tony kakkar", "hardy sandhu", "raftaar"],
+        "queries": [
+            "bollywood party dance hits jukebox",
+            "punjabi club party bangers",
+            "latest hindi dance songs playlist",
+            "honey singh badshah party hits",
+            "club dj mashup dance songs bollywood",
+            "wedding dance party songs hindi"
+        ]
+    },
+    "punjabi": {
+        "keywords": [
+            "sidhu", "moosewala", "karan aujla", "shubh", "ap dhillon", "diljit", "jatt", "yaar",
+            "gabru", "punjabi", "chandigarh", "brampton", "cheques", "winning speech", "brown munde",
+            "excuses", "elevated", "white brown black", "softly", "goat", "295", "levels", "so high",
+            "never fold", "legend", "same beef", "old skool", "chitta kurta", "mexico", "sheesha",
+            "admire you", "tauba tauba", "hass hass", "kinni kinni", "with you", "jee ni karda"
+        ],
+        "artists": ["sidhu moosewala", "karan aujla", "diljit dosanjh", "ap dhillon", "shubh", "amrit maan", "jordan sandhu"],
+        "queries": [
+            "punjabi top hits karan aujla sidhu moosewala",
+            "latest punjabi hype bangers playlist",
+            "shubh ap dhillon vibe songs",
+            "diljit dosanjh hit songs collection",
+            "trending punjabi car songs"
+        ]
+    },
+    "lofi": {
+        "keywords": ["lofi", "slowed", "reverb", "chill", "midnight", "aesthetic", "relax", "sleep", "study", "beats", "peaceful", "night"],
+        "artists": ["lofi", "chill", "aesthetic", "vibe"],
+        "queries": [
+            "hindi lofi aesthetic chill mix",
+            "midnight bollywood slowed reverb songs",
+            "hindi lofi songs to sleep study",
+            "aesthetic peaceful hindi songs"
+        ]
+    },
+    "devotional": {
+        "keywords": ["bhajan", "aarti", "chalisa", "krishna", "ram", "shiva", "hanuman", "mata", "radha", "shyam", "mahadev", "ganesh", "devotional", "bhakti"],
+        "artists": ["anup jalota", "gulshan kumar", "anuradha paudwal", "jubin nautiyal bhakti", "lakhbir singh lakha", "hansraj raghuwanshi"],
+        "queries": [
+            "top hindi devotional bhajans",
+            "mahadev shiv devotional songs",
+            "krishna bhajan peaceful collection",
+            "hanuman chalisa bhajans jukebox"
+        ]
+    },
+    "retro": {
+        "keywords": ["90s", "80s", "70s", "retro", "old", "evergreen", "classic", "kishore kumar", "lata mangeshkar", "mohd rafi", "mukesh", "rd burman", "kumar sanu", "alka yagnik", "udit narayan"],
+        "artists": ["kumar sanu", "alka yagnik", "udit narayan", "kishore kumar", "lata mangeshkar", "mohammad rafi", "asha bhosle", "rd burman"],
+        "queries": [
+            "90s bollywood evergreen hits jukebox",
+            "kumar sanu alka yagnik udit narayan hits",
+            "golden 70s 80s kishore kumar romantic songs",
+            "evergreen classic old hindi songs"
+        ]
+    }
+}
+
 
 def _clean_autoplay_title(title: str) -> str:
     import re
     t = re.sub(r"\(.*?\)|\[.*?\]", "", title)
     t = re.sub(r"(?i)\b(official|video|audio|lyrical|song|full video|hd|4k|remix|slowed|reverb|teaser|trailer|status)\b", "", t)
     return " ".join(t.split()).strip()
+
+
+def _detect_song_genre(title: str) -> str:
+    t_lower = title.lower()
+    
+    # Check specific keyword match
+    for genre, data in GENRE_DATABASE.items():
+        for kw in data["keywords"]:
+            if kw in t_lower:
+                return genre
+
+    # Check artist match
+    for genre, data in GENRE_DATABASE.items():
+        for art in data["artists"]:
+            if art in t_lower:
+                return genre
+
+    return "romantic"  # default mood
 
 
 async def _get_smart_autoplay_track(chat_id: int, popped: dict):
@@ -74,17 +203,18 @@ async def _get_smart_autoplay_track(chat_id: int, popped: dict):
     raw_title = popped.get("title", "")
     clean_title = _clean_autoplay_title(raw_title)
 
-    queries = [
-        f"{clean_title} radio mix songs",
-        f"{clean_title} similar songs",
-        f"{clean_title} playlist jukebox",
-    ]
+    detected_genre = _detect_song_genre(raw_title)
+    genre_info = GENRE_DATABASE.get(detected_genre, GENRE_DATABASE["romantic"])
+
+    queries = list(genre_info["queries"])
+    if clean_title:
+        queries.insert(0, f"{clean_title} similar genre songs")
     random.shuffle(queries)
 
     chosen = None
     for q in queries:
         try:
-            results = VideosSearch(q, limit=12)
+            results = VideosSearch(q, limit=15)
             res = await results.next()
             items = res.get("result", []) if res else []
             candidates = []
@@ -96,15 +226,16 @@ async def _get_smart_autoplay_track(chat_id: int, popped: dict):
                 if str(v_id) in AUTOPLAY_HISTORY[chat_id]:
                     continue
                 c_item_title = _clean_autoplay_title(v_title)
+                # Avoid exact same song repetition
                 if clean_title and (clean_title.lower() in c_item_title.lower() or c_item_title.lower() in clean_title.lower()):
                     continue
                 dur = item.get("duration", "")
-                if dur and len(dur.split(":")) > 2:
+                if dur and len(dur.split(":")) > 2:  # skip long compilations > 1 hour
                     continue
                 candidates.append(item)
 
             if candidates:
-                chosen = random.choice(candidates[:4])
+                chosen = random.choice(candidates[:6])
                 break
         except Exception:
             continue
@@ -129,6 +260,7 @@ async def _get_smart_autoplay_track(chat_id: int, popped: dict):
             AUTOPLAY_HISTORY[chat_id].pop()
         return chosen
     return None
+
 
 
 class Call:

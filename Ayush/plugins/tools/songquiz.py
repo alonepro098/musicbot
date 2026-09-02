@@ -1,213 +1,256 @@
+import os
 import random
 import asyncio
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from py_yt import VideosSearch
+import yt_dlp
 
 from Ayush import app
+from Ayush.core.call import Aayu
+from Ayush.utils.database import get_lang, is_active_chat
+from strings import get_string
 from config import BANNED_USERS
 
-# In-memory quiz sessions and leaderboard
-ACTIVE_QUIZZES = {}
-QUIZ_SCORES = {}
-
-QUIZ_DB = [
-    {
-        "snippet": "🎵 <i>'Teri jhuki nazar, teri har ada, mujhe keh rahi hai ye dastaan...'</i>",
-        "movie": "Murder 3",
-        "artist": "Shafqat Amanat Ali",
-        "options": ["Teri Jhuki Nazar", "Tum Hi Ho", "Pee Loon", "Mat Aazma Re"],
-        "correct": "Teri Jhuki Nazar",
-        "yt_query": "Teri Jhuki Nazar Murder 3",
-    },
-    {
-        "snippet": "🎵 <i>'Kyon ki tum hi ho, ab tum hi ho, zindagi ab tum hi ho...'</i>",
-        "movie": "Aashiqui 2",
-        "artist": "Arijit Singh",
-        "options": ["Sunn Raha Hai", "Tum Hi Ho", "Chahun Main Ya Naa", "Milne Hai Mujhse Aayi"],
-        "correct": "Tum Hi Ho",
-        "yt_query": "Tum Hi Ho Aashiqui 2",
-    },
-    {
-        "snippet": "🎵 <i>'Kesariya tera ishq hai piya, rang jaaun jo main haath lagaun...'</i>",
-        "movie": "Brahmastra",
-        "artist": "Arijit Singh",
-        "options": ["Rasiya", "Deva Deva", "Kesariya", "Apna Bana Le"],
-        "correct": "Kesariya",
-        "yt_query": "Kesariya Brahmastra",
-    },
-    {
-        "snippet": "🎵 <i>'Main tenu samjhawan ki, na tere bina lagda jee...'</i>",
-        "movie": "Humpty Sharma Ki Dulhania",
-        "artist": "Arijit Singh & Shreya Ghoshal",
-        "options": ["Samjhawan", "Bolna", "Dillagi", "Naina"],
-        "correct": "Samjhawan",
-        "yt_query": "Samjhawan Humpty Sharma",
-    },
-    {
-        "snippet": "🎵 <i>'Tere vaaste falak se main chaand laaunga, solah satrah sitaare sang baandh laaunga...'</i>",
-        "movie": "Zara Hatke Zara Bachke",
-        "artist": "Varun Jain, Sachin-Jigar",
-        "options": ["Tere Vaaste", "Phir Aur Kya Chahiye", "Saari Duniya Jalaa Denge", "Heeriye"],
-        "correct": "Tere Vaaste",
-        "yt_query": "Tere Vaaste Zara Hatke",
-    },
-    {
-        "snippet": "🎵 <i>'Jeene laga hoon pehle se zyada, pehle se zyada tumpe marne laga hoon...'</i>",
-        "movie": "Ramaiya Vastavaiya",
-        "artist": "Atif Aslam, Shreya Ghoshal",
-        "options": ["Rang Jo Lagyo", "Jeene Laga Hoon", "Pehli Nazar Mein", "Tu Jaane Na"],
-        "correct": "Jeene Laga Hoon",
-        "yt_query": "Jeene Laga Hoon Atif Aslam",
-    },
-    {
-        "snippet": "🎵 <i>'Kaun tujhe yoon pyaar karega jaise main karta hoon...'</i>",
-        "movie": "M.S. Dhoni",
-        "artist": "Palak Muchhal, Amaal Mallik",
-        "options": ["Besabriyaan", "Jab Tak", "Kaun Tujhe", "Phir Kabhi"],
-        "correct": "Kaun Tujhe",
-        "yt_query": "Kaun Tujhe MS Dhoni",
-    },
-    {
-        "snippet": "🎵 <i>'Tu hai toh mujhe phir aur kya chahiye, kisi ki na madad na panaah chahiye...'</i>",
-        "movie": "Zara Hatke Zara Bachke",
-        "artist": "Arijit Singh",
-        "options": ["Phir Aur Kya Chahiye", "Apna Bana Le", "O Maahi", "Satranga"],
-        "correct": "Phir Aur Kya Chahiye",
-        "yt_query": "Phir Aur Kya Chahiye",
-    },
+# ==========================================
+# 🎵 QUIZ SONGS LIST (ADD / EDIT SONGS HERE)
+# ==========================================
+QUIZ_SONG_LIST = [
+    "Tum Hi Ho Aashiqui 2",
+    "Kesariya Brahmastra",
+    "Wajah Tum Ho Hate Story 3",
+    "Abhi Toh Party Shuru Hui Hai Khoobsurat",
+    "Channa Mereya Ae Dil Hai Mushkil",
+    "Agar Tum Saath Ho Tamasha",
+    "Kala Chashma Baar Baar Dekho",
+    "Bekhayali Kabir Singh",
+    "Apna Bana Le Bhediya",
+    "Tere Vaaste Zara Hatke Zara Bachke",
+    "Dil Diyan Gallan Tiger Zinda Hai",
+    "Lut Gaye Jubin Nautiyal",
+    "Jeene Laga Hoon Ramaiya Vastavaiya",
+    "Kaun Tujhe MS Dhoni",
+    "Raataan Lambiyan Shershaah",
+    "Pee Loon Once Upon A Time In Mumbaai",
+    "Tu Jaane Na Ajab Prem Ki Ghazab Kahani",
+    "Badtameez Dil Yeh Jawaani Hai Deewani",
+    "Ghungroo War",
+    "Nashe Si Chadh Gayi Befikre",
+    "Kar Gayi Chull Kapoor and Sons",
+    "Chaleya Jawan",
+    "O Maahi Dunki",
+    "Satranga Animal",
+    "Samjhawan Humpty Sharma Ki Dulhania",
+    "Heeriye Arijit Singh Jasleen Royal",
+    "Winning Speech Karan Aujla",
+    "295 Sidhu Moosewala",
+    "Cheques Shubh",
+    "Brown Munde AP Dhillon",
+    "Excuses AP Dhillon",
+    "Tauba Tauba Bad Newz",
+    "Zara Sa Jannat",
+    "Subhanallah Yeh Jawaani Hai Deewani",
+    "Mast Magan 2 States",
+    "Hawayein Jab Harry Met Sejal",
+    "Dil Sambhal Ja Zara Murder 2",
+    "Gerua Dilwale",
+    "Soch Na Sake Airlift",
+    "Tum Se Hi Jab We Met"
 ]
 
+ACTIVE_QUIZZES = {}
 
-@app.on_message(filters.command(["songquiz", "guessthesong", "musicquiz"]) & filters.group & ~BANNED_USERS)
-async def song_quiz_handler(client, message: Message):
-    chat_id = message.chat.id
-    if chat_id in ACTIVE_QUIZZES:
-        return await message.reply_text("⚠️ <i>A quiz is already active in this group! Answer that first or wait for the timer.</i>")
 
-    quiz = random.choice(QUIZ_DB)
-    q_id = f"{chat_id}_{random.randint(1000, 9999)}"
+def _download_5s_clip(link: str, output_path: str):
+    os.makedirs("cache", exist_ok=True)
+    temp_full = f"cache/temp_quiz_{random.randint(1000, 9999)}.mp3"
+    
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": temp_full,
+        "geo_bypass": True,
+        "quiet": True,
+        "no_warnings": True,
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "128",
+            }
+        ],
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([link])
+            
+        # Cut exactly 5 seconds (from 0:30 hook or from beginning) using ffmpeg
+        if os.path.exists(temp_full):
+            os.system(f'ffmpeg -y -ss 00:00:30 -t 5 -i "{temp_full}" -acodec copy "{output_path}"')
+            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                os.system(f'ffmpeg -y -t 5 -i "{temp_full}" -acodec copy "{output_path}"')
+            if os.path.exists(temp_full):
+                os.remove(temp_full)
+    except Exception:
+        pass
+
+
+async def start_vc_quiz(chat_id: int, user_id: int, user_name: str, message: Message = None):
+    chosen_query = random.choice(QUIZ_SONG_LIST)
+    
+    # Search on YT
+    results = VideosSearch(chosen_query, limit=1)
+    res = await results.next()
+    items = res.get("result", [])
+    if not items:
+        if message:
+            return await message.reply_text("❌ <i>Failed to fetch song from YouTube. Try again!</i>")
+        return
+
+    track = items[0]
+    song_title = track["title"]
+    song_link = track["link"]
+    song_vidid = track["id"]
+
+    quiz_audio_path = f"cache/quiz_{chat_id}_{random.randint(100, 999)}.mp3"
+
+    # Download 5s audio clip in background executor
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _download_5s_clip, song_link, quiz_audio_path)
+
+    if not os.path.exists(quiz_audio_path):
+        if message:
+            return await message.reply_text("❌ <i>Could not extract 5-second audio snippet. Please try again!</i>")
+        return
+
     ACTIVE_QUIZZES[chat_id] = {
-        "id": q_id,
-        "correct": quiz["correct"],
-        "yt_query": quiz["yt_query"],
-        "answered": False,
+        "title": song_title,
+        "link": song_link,
+        "vidid": song_vidid,
+        "query": chosen_query,
+        "revealed": False,
     }
 
-    buttons = []
-    shuffled_options = list(quiz["options"])
-    random.shuffle(shuffled_options)
+    # Play 5-second tune in VC
+    try:
+        if await is_active_chat(chat_id):
+            assistant = await Aayu.group_assistant(chat_id) if hasattr(Aayu, 'group_assistant') else Aayu.one
+            from pytgcalls.types.input_stream import AudioPiped
+            from pytgcalls.types.input_stream.quality import HighQualityAudio
+            await assistant.change_stream(chat_id, AudioPiped(quiz_audio_path, audio_parameters=HighQualityAudio()))
+        else:
+            await Aayu.join_call(chat_id, chat_id, quiz_audio_path, video=None)
+    except Exception as e:
+        pass
 
-    # 2x2 inline button grid
-    row = []
-    for opt in shuffled_options:
-        cb = f"QUIZ_ANS|{chat_id}|{opt}"
-        row.append(InlineKeyboardButton(text=opt, callback_data=cb))
-        if len(row) == 2:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
-
-    buttons.append([InlineKeyboardButton(text="🗑️ Cancel Quiz", callback_data=f"QUIZ_CANCEL|{chat_id}")])
-
-    quiz_text = (
-        f"<blockquote>🎮 <b><u>GUESS THE SONG CHALLENGE</u></b>\n\n"
-        f"{quiz['snippet']}\n\n"
-        f"🎬 <b>Movie :</b> {quiz['movie']}\n"
-        f"🎤 <b>Singer :</b> {quiz['artist']}\n\n"
-        f"⏱️ <i>You have 45 seconds to pick the right song title!</i></blockquote>"
+    buttons = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(text="👁️ ʀᴇᴠᴇᴀʟ ᴀɴsᴡᴇʀ", callback_data=f"QUIZ_REVEAL|{chat_id}"),
+                InlineKeyboardButton(text="🔄 ɴᴇxᴛ ǫᴜɪᴢ", callback_data=f"QUIZ_NEXT|{chat_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="🗑️ ᴄʟᴏsᴇ", callback_data="close"),
+            ]
+        ]
     )
 
-    msg = await message.reply_text(quiz_text, reply_markup=InlineKeyboardMarkup(buttons))
+    caption = (
+        "<blockquote>🎮 <b><u>GUESS THE SONG IN VC!</u></b>\n\n"
+        "🔊 <b>5-second music tune is playing in Voice Chat right now!</b>\n"
+        "👂 <i>Listen carefully to the tune in VC and guess the song name with your friends in chat!</i>\n\n"
+        "⏱️ <i>After everyone has guessed, click <b>'Reveal Answer'</b> below!</i></blockquote>"
+    )
 
-    # Auto expire after 45s
-    await asyncio.sleep(45)
-    if chat_id in ACTIVE_QUIZZES and ACTIVE_QUIZZES[chat_id]["id"] == q_id and not ACTIVE_QUIZZES[chat_id]["answered"]:
-        del ACTIVE_QUIZZES[chat_id]
+    if message:
+        await message.reply_text(caption, reply_markup=buttons)
+
+    # Automatically clean 5-second file after 15 seconds
+    await asyncio.sleep(15)
+    if os.path.exists(quiz_audio_path):
         try:
-            await msg.edit_text(
-                f"<blockquote>⏰ <b>Time's Up!</b>\n\n"
-                f"The correct song was: <b>{quiz['correct']}</b>\n"
-                f"💡 <i>Type /songquiz to try another challenge!</i></blockquote>"
-            )
+            os.remove(quiz_audio_path)
         except Exception:
             pass
 
 
-@app.on_callback_query(filters.regex(r"^QUIZ_ANS\|") & ~BANNED_USERS)
-async def quiz_answer_callback(client, CallbackQuery: CallbackQuery):
-    parts = CallbackQuery.data.split("|")
-    chat_id = int(parts[1])
-    selected_option = parts[2]
-    user = CallbackQuery.from_user
+@app.on_message(filters.command(["songquiz", "musicquiz", "guessthesong"]) & filters.group & ~BANNED_USERS)
+async def song_quiz_command(client, message: Message):
+    m = await message.reply_text("<blockquote>🎮 <i>Starting 5-second VC song quiz... Joining Voice Chat...</i></blockquote>")
+    await start_vc_quiz(message.chat.id, message.from_user.id, message.from_user.first_name, message)
+    try:
+        await m.delete()
+    except Exception:
+        pass
 
+
+@app.on_callback_query(filters.regex(r"^QUIZ_REVEAL\|") & ~BANNED_USERS)
+async def quiz_reveal_callback(client, CallbackQuery: CallbackQuery):
+    chat_id = int(CallbackQuery.data.split("|")[1])
     if chat_id not in ACTIVE_QUIZZES:
-        return await CallbackQuery.answer("⚠️ This quiz has already expired!", show_alert=True)
+        return await CallbackQuery.answer("⚠️ No active quiz round found!", show_alert=True)
 
-    session = ACTIVE_QUIZZES[chat_id]
-    if session["answered"]:
-        return await CallbackQuery.answer("⚠️ Someone already answered this quiz!", show_alert=True)
+    quiz = ACTIVE_QUIZZES[chat_id]
+    quiz["revealed"] = True
+    song_name = quiz["title"]
 
-    if selected_option == session["correct"]:
-        session["answered"] = True
-        del ACTIVE_QUIZZES[chat_id]
-
-        # Update leaderboard points
-        user_key = f"{chat_id}_{user.id}"
-        QUIZ_SCORES[user_key] = QUIZ_SCORES.get(user_key, {"name": user.first_name, "points": 0})
-        QUIZ_SCORES[user_key]["points"] += 10
-        total_pts = QUIZ_SCORES[user_key]["points"]
-
-        play_btn = InlineKeyboardMarkup(
+    buttons = InlineKeyboardMarkup(
+        [
             [
-                [
-                    InlineKeyboardButton(
-                        text="▶️ Play this song in VC",
-                        callback_data=f"CPLAY_SEARCH|{session['yt_query']}"
-                    ),
-                    InlineKeyboardButton(text="🗑️ Close", callback_data="close"),
-                ]
+                InlineKeyboardButton(text="▶️ ᴘʟᴀʏ ғᴜʟʟ sᴏɴɢ ɪɴ ᴠᴄ", callback_data=f"CPLAY_SEARCH|{quiz['query']}"),
+            ],
+            [
+                InlineKeyboardButton(text="🔄 ɴᴇxᴛ ǫᴜɪᴢ", callback_data=f"QUIZ_NEXT|{chat_id}"),
+                InlineKeyboardButton(text="🗑️ ᴄʟᴏsᴇ", callback_data="close"),
             ]
+        ]
+    )
+
+    await CallbackQuery.edit_message_text(
+        f"<blockquote>🎉 <b><u>SONG QUIZ ANSWER REVEALED!</u></b>\n\n"
+        f"🎵 <b>The Song Was :</b> <code>{song_name}</code>\n\n"
+        f"✨ <i>Did you guess it right? Click below to stream the full song in VC or play the next quiz!</i></blockquote>",
+        reply_markup=buttons,
+    )
+
+
+@app.on_callback_query(filters.regex(r"^QUIZ_NEXT\|") & ~BANNED_USERS)
+async def quiz_next_callback(client, CallbackQuery: CallbackQuery):
+    chat_id = int(CallbackQuery.data.split("|")[1])
+    await CallbackQuery.edit_message_text("<blockquote>🔄 <i>Loading next 5-second VC tune...</i></blockquote>")
+    await start_vc_quiz(chat_id, CallbackQuery.from_user.id, CallbackQuery.from_user.first_name, CallbackQuery.message)
+
+
+@app.on_callback_query(filters.regex(r"^CPLAY_SEARCH\|") & ~BANNED_USERS)
+async def cplay_search_callback(client, CallbackQuery: CallbackQuery):
+    query = CallbackQuery.data.split("|", 1)[1]
+    chat_id = CallbackQuery.message.chat.id
+    user_id = CallbackQuery.from_user.id
+    user_name = CallbackQuery.from_user.first_name
+
+    await CallbackQuery.edit_message_text(f"<blockquote>▶️ <i>Streaming full song: <b>{query}</b> in Voice Chat...</i></blockquote>")
+
+    try:
+        from py_yt import VideosSearch
+        results = VideosSearch(query, limit=1)
+        res = await results.next()
+        track = res["result"][0]
+        vidid = track["id"]
+
+        language = await get_lang(chat_id)
+        _ = get_string(language)
+
+        from Ayush.utils.stream.stream import stream
+        await stream(
+            _,
+            CallbackQuery.message,
+            user_id,
+            f"https://www.youtube.com/watch?v={vidid}",
+            chat_id,
+            user_name,
+            chat_id,
+            video=None,
+            streamtype="youtube",
         )
-
-        await CallbackQuery.edit_message_text(
-            f"<blockquote>🎉 <b>CORRECT ANSWER!</b>\n\n"
-            f"👑 <b>Winner :</b> {user.mention}\n"
-            f"🎵 <b>Song :</b> <code>{session['correct']}</code>\n"
-            f"🏆 <b>Points Earned :</b> +10 (Total: {total_pts} pts)\n\n"
-            f"<i>Want to listen? Click below to stream it directly!</i></blockquote>",
-            reply_markup=play_btn,
-        )
-    else:
-        await CallbackQuery.answer("❌ Wrong answer! Try again or let someone else guess.", show_alert=True)
-
-
-@app.on_callback_query(filters.regex(r"^QUIZ_CANCEL\|") & ~BANNED_USERS)
-async def quiz_cancel_callback(client, CallbackQuery: CallbackQuery):
-    parts = CallbackQuery.data.split("|")
-    chat_id = int(parts[1])
-    if chat_id in ACTIVE_QUIZZES:
-        del ACTIVE_QUIZZES[chat_id]
-    await CallbackQuery.edit_message_text("<blockquote>🗑️ <b>Song Quiz cancelled.</b></blockquote>")
-
-
-@app.on_message(filters.command(["quizleaderboard", "quiztop", "musicquiztop"]) & filters.group & ~BANNED_USERS)
-async def quiz_leaderboard_handler(client, message: Message):
-    chat_id = message.chat.id
-    chat_scores = []
-    for k, v in QUIZ_SCORES.items():
-        if k.startswith(f"{chat_id}_"):
-            chat_scores.append(v)
-
-    if not chat_scores:
-        return await message.reply_text("<blockquote>📊 <b><u>QUIZ LEADERBOARD</u></b>\n\nNo points scored yet! Start playing with <code>/songquiz</code>!</blockquote>")
-
-    chat_scores.sort(key=lambda x: x["points"], reverse=True)
-    text = "<blockquote>🏆 <b><u>MUSIC QUIZ TOP CHAMPIONS</u></b>\n\n"
-    medals = ["🥇", "🥈", "🥉", "🎖️", "🎖️"]
-    for idx, player in enumerate(chat_scores[:10]):
-        m = medals[idx] if idx < len(medals) else f"#{idx+1}"
-        text += f"{m} <b>{player['name']}</b> ➜ <code>{player['points']} pts</code>\n"
-    text += "</blockquote>"
-
-    await message.reply_text(text)
+    except Exception as e:
+        await CallbackQuery.message.reply_text(f"❌ <i>Error playing full song: {e}</i>")
