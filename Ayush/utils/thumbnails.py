@@ -36,6 +36,34 @@ def add_corners(im):
     im.putalpha(mask)
 
 
+async def _get_user_dp(user_id):
+    if not user_id:
+        return None
+    try:
+        user = await app.get_users(user_id)
+        if user and user.photo:
+            file_id = user.photo.big_file_id
+            local_path = await app.download_media(file_id, file_name=f"cache/user_{user_id}.jpg")
+            if local_path and os.path.exists(local_path):
+                img = Image.open(local_path).convert("RGBA")
+                return img
+    except Exception:
+        pass
+
+    # Fallback to bot profile avatar
+    try:
+        me = await app.get_me()
+        if me and me.photo:
+            file_id = me.photo.big_file_id
+            local_path = await app.download_media(file_id, file_name="cache/bot_pfp.jpg")
+            if local_path and os.path.exists(local_path):
+                img = Image.open(local_path).convert("RGBA")
+                return img
+    except Exception:
+        pass
+    return None
+
+
 # ================= NEON COLORS =================
 NEON_COLORS = [
     ("#ff004f", "#ff2f7d"),  # red
@@ -47,7 +75,7 @@ NEON_COLORS = [
 
 
 # ================= STYLE 1: NEON CARD =================
-def gen_thumb_style1(yt, title, duration, views, videoid):
+def gen_thumb_style1(yt, title, duration, views, videoid, user_img=None):
     bg = changeImageSize(1280, 720, yt)
     bg = bg.filter(ImageFilter.GaussianBlur(22))
     bg = ImageEnhance.Brightness(bg).enhance(0.40)
@@ -123,7 +151,7 @@ def gen_thumb_style1(yt, title, duration, views, videoid):
 
 
 # ================= STYLE 2: CIRCLE DISC POSTER =================
-def gen_thumb_style2(yt, title, duration, views, videoid):
+def gen_thumb_style2(yt, title, duration, views, videoid, user_img=None):
     image1 = changeImageSize(1280, 720, yt)
     image2 = image1.convert("RGBA")
     background = image2.filter(ImageFilter.BoxBlur(28))
@@ -212,8 +240,8 @@ def gen_thumb_style2(yt, title, duration, views, videoid):
     return background
 
 
-# ================= STYLE 3: FALLENMUSIC CIRCLE DISK =================
-def gen_thumb_style3(yt, title, duration, views, videoid):
+# ================= STYLE 3: FALLENMUSIC CIRCLE DISK + USER DP =================
+def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
     image1 = changeImageSize(1280, 720, yt)
     image2 = image1.convert("RGBA")
     background = image2.filter(ImageFilter.BoxBlur(30))
@@ -231,6 +259,7 @@ def gen_thumb_style3(yt, title, duration, views, videoid):
     else:
         image3 = None
 
+    # Big circular crop for YouTube song thumbnail
     Xcenter = yt.width / 2
     Ycenter = yt.height / 2
     crop_size = min(yt.width, yt.height) // 2
@@ -246,6 +275,30 @@ def gen_thumb_style3(yt, title, duration, views, videoid):
     width = int((1280 - 365) / 2)
     background.paste(logo, (width + 2, 138), mask=logo)
 
+    # Small circular crop for User DP at position (710, 427) size 107x107
+    if user_img:
+        try:
+            u_img = changeImageSize(107, 107, user_img).convert("RGBA")
+            u_img = u_img.resize((107, 107), Image.LANCZOS)
+            add_corners(u_img)
+            
+            # White border circle around user DP
+            border_dp = Image.new("RGBA", (107, 107), (0, 0, 0, 0))
+            b_draw = ImageDraw.Draw(border_dp)
+            b_draw.ellipse((0, 0, 107, 107), outline="white", width=3)
+            u_img.alpha_composite(border_dp)
+            
+            background.paste(u_img, (710, 427), mask=u_img)
+        except Exception:
+            pass
+    else:
+        # Default circular avatar badge
+        default_dp = Image.new("RGBA", (107, 107), (0, 0, 0, 0))
+        d_draw = ImageDraw.Draw(default_dp)
+        d_draw.ellipse((0, 0, 107, 107), fill=(75, 75, 105, 255), outline="white", width=3)
+        background.paste(default_dp, (710, 427), mask=default_dp)
+
+    # Overlay circle.png frame
     if image3:
         background.paste(image3, (0, 0), mask=image3)
 
@@ -302,9 +355,9 @@ def gen_thumb_style3(yt, title, duration, views, videoid):
 
 
 # ================= MAIN =================
-async def get_thumb(videoid):
+async def get_thumb(videoid, user_id=None):
     global THUMB_COUNTER
-    out_file = f"cache/{videoid}.png"
+    out_file = f"cache/{videoid}_{user_id}.png" if user_id else f"cache/{videoid}.png"
     if os.path.isfile(out_file):
         return out_file
 
@@ -327,16 +380,19 @@ async def get_thumb(videoid):
 
         yt = Image.open(temp_file).convert("RGBA")
 
+        # ---------- DOWNLOAD USER DP ----------
+        user_img = await _get_user_dp(user_id)
+
         # ---------- 3-WAY ALTERNATING THUMBNAIL ENGINE ----------
-        # Style 1: Neon Card | Style 2: Circle Disc Poster | Style 3: FallenMusic Circle Disc Frame
+        # Style 1: Neon Card | Style 2: Circle Disc Poster | Style 3: FallenMusic Circle Disc Frame + User DP
         THUMB_COUNTER += 1
         rem = THUMB_COUNTER % 3
         if rem == 1:
-            bg = gen_thumb_style1(yt, title, duration, views, videoid)
+            bg = gen_thumb_style1(yt, title, duration, views, videoid, user_img)
         elif rem == 2:
-            bg = gen_thumb_style2(yt, title, duration, views, videoid)
+            bg = gen_thumb_style2(yt, title, duration, views, videoid, user_img)
         else:
-            bg = gen_thumb_style3(yt, title, duration, views, videoid)
+            bg = gen_thumb_style3(yt, title, duration, views, videoid, user_img)
 
         # ---------- SAVE ----------
         os.makedirs("cache", exist_ok=True)
