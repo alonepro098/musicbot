@@ -48,17 +48,13 @@ NEON_COLORS = [
 
 # ================= STYLE 1: NEON CARD =================
 def gen_thumb_style1(yt, title, duration, views, videoid):
-    # ---------- BACKGROUND ----------
     bg = changeImageSize(1280, 720, yt)
     bg = bg.filter(ImageFilter.GaussianBlur(22))
     bg = ImageEnhance.Brightness(bg).enhance(0.40)
 
     draw = ImageDraw.Draw(bg)
-
-    # ---------- RANDOM NEON ----------
     glow_color, border_color = random.choice(NEON_COLORS)
 
-    # ---------- CENTER THUMB ----------
     thumb_w, thumb_h = 840, 460
     yt_thumb = yt.resize((thumb_w, thumb_h))
 
@@ -71,10 +67,8 @@ def gen_thumb_style1(yt, title, duration, views, videoid):
     x = (1280 - thumb_w) // 2
     y = 160
 
-    # ---------- GLOW ----------
     glow = Image.new("RGBA", bg.size, (0, 0, 0, 0))
     gdraw = ImageDraw.Draw(glow)
-
     gdraw.rounded_rectangle(
         (x - 25, y - 25, x + thumb_w + 25, y + thumb_h + 25),
         radius=35,
@@ -83,7 +77,6 @@ def gen_thumb_style1(yt, title, duration, views, videoid):
     glow = glow.filter(ImageFilter.GaussianBlur(35))
     bg.alpha_composite(glow)
 
-    # ---------- BORDER ----------
     border = Image.new("RGBA", bg.size, (0, 0, 0, 0))
     bdraw = ImageDraw.Draw(border)
     bdraw.rounded_rectangle(
@@ -93,15 +86,12 @@ def gen_thumb_style1(yt, title, duration, views, videoid):
         width=6,
     )
     bg.alpha_composite(border)
-
     bg.paste(yt_thumb, (x, y), yt_thumb)
 
-    # ---------- FONTS ----------
     title_font = ImageFont.truetype("Ayush/assets/font.ttf", 46)
     info_font = ImageFont.truetype("Ayush/assets/font2.ttf", 30)
     watermark_font = ImageFont.truetype("Ayush/assets/font2.ttf", 24)
 
-    # ---------- TITLE (TOP RIGHT) ----------
     title_w = draw.textlength(title, font=title_font)
     draw.text(
         (1280 - title_w - 40, 40),
@@ -112,7 +102,6 @@ def gen_thumb_style1(yt, title, duration, views, videoid):
         stroke_fill=border_color,
     )
 
-    # ---------- BOTTOM INFO ----------
     username = getattr(app, "username", None) or "MusicBot"
     info_text = f"YouTube : {views} | Time : {duration} | Player : @{username}"
     info_w = draw.textlength(info_text, font=info_font)
@@ -124,27 +113,23 @@ def gen_thumb_style1(yt, title, duration, views, videoid):
         fill=border_color,
     )
 
-    # ---------- WATERMARK ----------
     draw.text(
         (30, 30),
         "AYUSH MUSIC",
         font=watermark_font,
         fill=border_color,
     )
-
     return bg
 
 
 # ================= STYLE 2: CIRCLE DISC POSTER =================
 def gen_thumb_style2(yt, title, duration, views, videoid):
-    # ---------- BACKGROUND ----------
     image1 = changeImageSize(1280, 720, yt)
     image2 = image1.convert("RGBA")
     background = image2.filter(ImageFilter.BoxBlur(28))
     enhancer = ImageEnhance.Brightness(background)
     background = enhancer.enhance(0.50)
 
-    # ---------- CIRCLE CROP DISC ----------
     Xcenter = yt.width / 2
     Ycenter = yt.height / 2
     crop_size = min(yt.width, yt.height) // 2
@@ -157,7 +142,6 @@ def gen_thumb_style2(yt, title, duration, views, videoid):
     logo = logo.resize((365, 365), Image.LANCZOS)
     add_corners(logo)
 
-    # ---------- DISC GLOW & BORDER RING ----------
     glow_color, border_color = random.choice(NEON_COLORS)
     ring = Image.new("RGBA", (395, 395), (0, 0, 0, 0))
     rdraw = ImageDraw.Draw(ring)
@@ -170,7 +154,6 @@ def gen_thumb_style2(yt, title, duration, views, videoid):
     background.paste(ring, (disc_x - 15, disc_y - 15), mask=ring)
     background.paste(logo, (disc_x, disc_y), mask=logo)
 
-    # Outer neon border around disc
     border_ring = Image.new("RGBA", (375, 375), (0, 0, 0, 0))
     brdraw = ImageDraw.Draw(border_ring)
     brdraw.ellipse((0, 0, 375, 375), outline=border_color, width=5)
@@ -181,7 +164,6 @@ def gen_thumb_style2(yt, title, duration, views, videoid):
     font_mid = ImageFont.truetype("Ayush/assets/font.ttf", 36)
     font_small = ImageFont.truetype("Ayush/assets/font2.ttf", 28)
 
-    # ---------- HEADER ----------
     header_text = "✦ STARTED PLAYING ✦"
     hw = draw.textlength(header_text, font=font_large)
     draw.text(
@@ -193,7 +175,6 @@ def gen_thumb_style2(yt, title, duration, views, videoid):
         font=font_large,
     )
 
-    # ---------- TITLE (WRAPPED 2 LINES) ----------
     para = textwrap.wrap(title, width=35)
     try:
         if len(para) > 0 and para[0]:
@@ -219,7 +200,6 @@ def gen_thumb_style2(yt, title, duration, views, videoid):
     except Exception:
         pass
 
-    # ---------- FOOTER DURATION & VIEWS ----------
     username = getattr(app, "username", None) or "MusicBot"
     duration_text = f"⏱️ {duration} Mins | 👁️ {views} Views | @{username}"
     dw = draw.textlength(duration_text, font=font_small)
@@ -229,7 +209,95 @@ def gen_thumb_style2(yt, title, duration, views, videoid):
         fill=border_color,
         font=font_small,
     )
+    return background
 
+
+# ================= STYLE 3: FALLENMUSIC CIRCLE DISK =================
+def gen_thumb_style3(yt, title, duration, views, videoid):
+    image1 = changeImageSize(1280, 720, yt)
+    image2 = image1.convert("RGBA")
+    background = image2.filter(ImageFilter.BoxBlur(30))
+    enhancer = ImageEnhance.Brightness(background)
+    background = enhancer.enhance(0.60)
+
+    # Use circle.png asset
+    circle_asset = "Ayush/assets/circle.png"
+    if os.path.exists(circle_asset):
+        try:
+            bg_circle = Image.open(circle_asset).convert("RGBA")
+            image3 = changeImageSize(1280, 720, bg_circle)
+        except Exception:
+            image3 = None
+    else:
+        image3 = None
+
+    Xcenter = yt.width / 2
+    Ycenter = yt.height / 2
+    crop_size = min(yt.width, yt.height) // 2
+    x1 = max(0, Xcenter - crop_size)
+    y1 = max(0, Ycenter - crop_size)
+    x2 = min(yt.width, Xcenter + crop_size)
+    y2 = min(yt.height, Ycenter + crop_size)
+    
+    logo = yt.crop((x1, y1, x2, y2)).convert("RGBA")
+    logo = logo.resize((365, 365), Image.LANCZOS)
+    add_corners(logo)
+
+    width = int((1280 - 365) / 2)
+    background.paste(logo, (width + 2, 138), mask=logo)
+
+    if image3:
+        background.paste(image3, (0, 0), mask=image3)
+
+    draw = ImageDraw.Draw(background)
+    font = ImageFont.truetype("Ayush/assets/font.ttf", 45)
+    arial = ImageFont.truetype("Ayush/assets/font2.ttf", 30)
+
+    header_text = "STARTED PLAYING"
+    hw = draw.textlength(header_text, font=font)
+    draw.text(
+        ((1280 - hw) / 2, 25),
+        header_text,
+        fill="white",
+        stroke_width=2,
+        stroke_fill="grey",
+        font=font,
+    )
+
+    para = textwrap.wrap(title, width=32)
+    try:
+        if len(para) > 0 and para[0]:
+            tw1 = draw.textlength(para[0], font=font)
+            draw.text(
+                ((1280 - tw1) / 2, 530),
+                para[0],
+                fill="white",
+                stroke_width=1,
+                stroke_fill="white",
+                font=font,
+            )
+        if len(para) > 1 and para[1]:
+            tw2 = draw.textlength(para[1], font=font)
+            draw.text(
+                ((1280 - tw2) / 2, 580),
+                para[1],
+                fill="white",
+                stroke_width=1,
+                stroke_fill="white",
+                font=font,
+            )
+    except Exception:
+        pass
+
+    username = getattr(app, "username", None) or "MusicBot"
+    dur_text = f"Duration: {duration} Mins | Views: {views} | @{username}"
+    dw = draw.textlength(dur_text, font=arial)
+    draw.text(
+        ((1280 - dw) / 2, 660),
+        dur_text,
+        fill="white",
+        font=arial,
+    )
     return background
 
 
@@ -259,13 +327,16 @@ async def get_thumb(videoid):
 
         yt = Image.open(temp_file).convert("RGBA")
 
-        # ---------- ALTERNATING THUMBNAIL ENGINE ----------
-        # Style 1: Neon Card | Style 2: Circle Disc Poster
+        # ---------- 3-WAY ALTERNATING THUMBNAIL ENGINE ----------
+        # Style 1: Neon Card | Style 2: Circle Disc Poster | Style 3: FallenMusic Circle Disc Frame
         THUMB_COUNTER += 1
-        if THUMB_COUNTER % 2 == 1:
+        rem = THUMB_COUNTER % 3
+        if rem == 1:
             bg = gen_thumb_style1(yt, title, duration, views, videoid)
-        else:
+        elif rem == 2:
             bg = gen_thumb_style2(yt, title, duration, views, videoid)
+        else:
+            bg = gen_thumb_style3(yt, title, duration, views, videoid)
 
         # ---------- SAVE ----------
         os.makedirs("cache", exist_ok=True)
