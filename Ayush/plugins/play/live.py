@@ -45,7 +45,7 @@ async def play_live_stream(client, CallbackQuery, _):
 
     ffplay = True if fplay == "f" else None
 
-    if not details["duration_min"]:
+    if not details.get("duration_min"):
         try:
             await stream(
                 _,

@@ -226,25 +226,28 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        res = await results.next()
-        if not res or not res.get("result"):
-            return {}, ""
-        for result in res["result"]:
+        try:
+            results = VideosSearch(link, limit=1)
+            res = await results.next()
+            if not res or not res.get("result"):
+                raise Exception("No results found")
+            result = res["result"][0]
             title = result.get("title", "")
             duration_min = result.get("duration", "0:00")
             vidid = result.get("id", "")
             yturl = result.get("link", "")
             thumbnails = result.get("thumbnails", [])
             thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else ""
-        track_details = {
-            "title": title,
-            "link": yturl,
-            "vidid": vidid,
-            "duration_min": duration_min,
-            "thumb": thumbnail,
-        }
-        return track_details, vidid
+            track_details = {
+                "title": title,
+                "link": yturl,
+                "vidid": vidid,
+                "duration_min": duration_min,
+                "thumb": thumbnail,
+            }
+            return track_details, vidid
+        except Exception:
+            raise Exception("No results found")
 
     async def formats(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
