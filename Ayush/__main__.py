@@ -1,3 +1,28 @@
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Music Bot is running!')
+
+    def log_message(self, format, *args):
+        pass
+
+def start_render_health_server():
+    port = int(os.environ.get('PORT', 8080))
+    try:
+        server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+        print(f'[RENDER] Health web server running on port {port}')
+        server.serve_forever()
+    except Exception as e:
+        print(f'[RENDER ERROR] Failed to bind port {port}: {e}')
+
+threading.Thread(target=start_render_health_server, daemon=True).start()
+
 import asyncio
 import importlib
 
