@@ -32,7 +32,7 @@ HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
 
 HEROKU_API_KEY = getenv("HEROKU_API_KEY")
 
-API_URL= "http://localhost:8080"
+API_URL= "https://tall-peaches-dig.loca.lt"
 API_KEY= "AAYU-API-80FF-83BD866C"
 
 UPSTREAM_REPO = getenv(
