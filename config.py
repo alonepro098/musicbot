@@ -32,8 +32,8 @@ HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
 
 HEROKU_API_KEY = getenv("HEROKU_API_KEY")
 
-API_URL= "https://apisparrow.site"
-API_KEY= "sparrowALHk32sQQ0fGcTLymiTUwunR"
+API_URL= "http://localhost:8080"
+API_KEY= "AAYU-API-80FF-83BD866C"
 
 UPSTREAM_REPO = getenv(
     "UPSTREAM_REPO",
