@@ -13,15 +13,18 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         pass
 
 def start_render_health_server():
-    port = int(os.environ.get('PORT', 8080))
-    try:
-        server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-        print(f'[RENDER] Health web server running on port {port}')
-        server.serve_forever()
-    except Exception as e:
-        print(f'[RENDER ERROR] Failed to bind port {port}: {e}')
+    ports_to_try = [int(os.environ.get('PORT', 8080)), 8080, 10000]
+    for port in set(ports_to_try):
+        def run_server(p):
+            try:
+                server = HTTPServer(('0.0.0.0', p), HealthCheckHandler)
+                print(f'[RENDER] Health web server running on port {p}')
+                server.serve_forever()
+            except Exception as e:
+                pass
+        threading.Thread(target=run_server, args=(port,), daemon=True).start()
 
-threading.Thread(target=start_render_health_server, daemon=True).start()
+start_render_health_server()
 
 import asyncio
 import importlib
@@ -61,7 +64,7 @@ async def init():
     await app.start()
     for all_module in ALL_MODULES:
         importlib.import_module("Ayush.plugins" + all_module)
-    LOGGER("Ayush.plugins").info("sᴜᴄᴄᴇssғᴜʟʟʏ ɪᴍᴘᴏʀᴛᴇᴅ ᴀʟʟ ᴍᴏᴅᴜʟᴇs...")
+    LOGGER("Ayush.plugins").info("sss   s...")
     await userbot.start()
     await Aayu.start()
     try:
@@ -75,12 +78,12 @@ async def init():
         pass
     await Aayu.decorators()
     LOGGER("Ayush").info(
-        "ᴍᴜsɪᴄ ʙᴏᴛ sᴛᴀʀᴛᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ"
+        "s  s sss"
     )
     await idle()
     await app.stop()
     await userbot.stop()
-    LOGGER("Ayush").info("ʙᴏᴛ sʜᴜᴛᴅᴏᴡɴ ᴄᴏᴍᴘʟᴇᴛᴇᴅ...")
+    LOGGER("Ayush").info(" s ...")
 
 
 if __name__ == "__main__":
