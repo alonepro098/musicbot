@@ -9,10 +9,19 @@ from py_yt import VideosSearch, Playlist
 import aiohttp
 import config
 
-API_URL = config.API_URL or os.environ.get("MusicSp_API_URL", "https://apisparrow.site")
+# ========================================================
+# AAYUBOTS CUSTOM MUSIC STREAMING API INTEGRATION
+# ========================================================
+# Set API_URL and API_KEY in config.py or via environment variables:
+# AAYU_API_URL = "http://localhost:8080" (or your deployed domain: https://api.yourdomain.com)
+# AAYU_API_KEY = "AAYU-API-XXXX-XXXXXXXX" (get from @testaayu113bot via /getkey)
+# ========================================================
+
+API_URL = getattr(config, "API_URL", None) or os.environ.get("AAYU_API_URL") or os.environ.get("MusicSp_API_URL", "http://localhost:8080")
 if API_URL:
     API_URL = API_URL.rstrip("/")
-API_KEY = config.API_KEY or os.environ.get("MusicSp_API_KEY", None)
+
+API_KEY = getattr(config, "API_KEY", None) or os.environ.get("AAYU_API_KEY") or os.environ.get("MusicSp_API_KEY", None)
 
 DOWNLOAD_DIR = "downloads"
 
@@ -23,6 +32,7 @@ def time_to_seconds(time):
 
 
 async def download_song(link: str) -> str:
+    """Downloads audio track via AayuBots API (with local fallback)."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
@@ -32,38 +42,62 @@ async def download_song(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    if not API_URL:
-        return None
+    # 1. Attempt download via Custom AayuBots API
+    if API_URL:
+        params = {"url": video_id, "type": "audio"}
+        if API_KEY:
+            params["api_key"] = API_KEY
 
-    params = {"url": video_id, "type": "audio"}
-    if API_KEY:
-        params["api_key"] = API_KEY
+        headers = {"X-API-KEY": API_KEY} if API_KEY else {}
 
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{API_URL}/download",
+                    params=params,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=180)
+                ) as resp:
+                    if resp.status == 200:
+                        with open(file_path, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(131072):
+                                f.write(chunk)
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            return file_path
+        except Exception as e:
+            print(f"[API ERROR] Failed downloading from API: {e}")
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+
+    # 2. Fallback: Direct yt-dlp download if API is temporarily unavailable
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params=params,
-                timeout=aiohttp.ClientTimeout(total=180)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "outtmpl": os.path.join(DOWNLOAD_DIR, f"{video_id}.%(ext)s"),
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }],
+            "quiet": True,
+            "no_warnings": True,
+            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        }
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             return file_path
-        return None
-    except Exception:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
+    except Exception as e:
+        print(f"[FALLBACK ERROR] Direct download failed: {e}")
+
+    return None
 
 
 async def download_video(link: str) -> str:
+    """Downloads video track via AayuBots API (with local fallback)."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
@@ -73,35 +107,53 @@ async def download_video(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    if not API_URL:
-        return None
+    # 1. Attempt download via Custom AayuBots API
+    if API_URL:
+        params = {"url": video_id, "type": "video"}
+        if API_KEY:
+            params["api_key"] = API_KEY
 
-    params = {"url": video_id, "type": "video"}
-    if API_KEY:
-        params["api_key"] = API_KEY
+        headers = {"X-API-KEY": API_KEY} if API_KEY else {}
 
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{API_URL}/download",
+                    params=params,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=300)
+                ) as resp:
+                    if resp.status == 200:
+                        with open(file_path, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(131072):
+                                f.write(chunk)
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            return file_path
+        except Exception as e:
+            print(f"[API ERROR] Video download from API failed: {e}")
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+
+    # 2. Fallback: Direct yt-dlp video download
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params=params,
-                timeout=aiohttp.ClientTimeout(total=300)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
+        ydl_opts = {
+            "format": "best[ext=mp4]/best",
+            "outtmpl": file_path,
+            "quiet": True,
+            "no_warnings": True,
+            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        }
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             return file_path
-        return None
-    except Exception:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        return None
+    except Exception as e:
+        print(f"[FALLBACK ERROR] Direct video download failed: {e}")
+
+    return None
 
 
 class YouTubeAPI:
