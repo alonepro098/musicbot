@@ -32,7 +32,7 @@ def time_to_seconds(time):
 
 
 async def download_song(link: str) -> str:
-    """Instant stream URL for PyTgCalls (Under 1 second playback)."""
+    """Downloads audio track via AayuBots API into local MP3 file for PyTgCalls."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
@@ -42,13 +42,36 @@ async def download_song(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    # Instant Direct Stream: Return streaming URL immediately (< 1 sec play)
+    # Download from AayuBots API
     if API_URL:
-        stream_url = f"{API_URL}/download?url={video_id}&type=audio&api_key={API_KEY}"
-        print(f"[INSTANT PLAY] Passing direct stream URL to PyTgCalls: {video_id}")
-        return stream_url
+        params = {"url": video_id, "type": "audio", "api_key": API_KEY}
+        headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
 
-    # 2. Fallback: Direct yt-dlp download if API is temporarily unavailable
+        try:
+            print(f"[API] Downloading audio {video_id} via {API_URL}...")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{API_URL}/download",
+                    params=params,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=180)
+                ) as resp:
+                    if resp.status == 200:
+                        with open(file_path, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(262144):
+                                f.write(chunk)
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            print(f"[API SUCCESS] Downloaded {video_id}.mp3 ({os.path.getsize(file_path)} bytes)")
+                            return file_path
+                    else:
+                        print(f"[API ERROR] API returned status {resp.status} for {video_id}")
+        except Exception as e:
+            print(f"[API ERROR] Download failed: {e}")
+            if os.path.exists(file_path):
+                try: os.remove(file_path)
+                except Exception: pass
+
+    # Fallback to direct yt-dlp if API is temporarily unavailable
     try:
         ydl_opts = {
             "format": "bestaudio/best",
@@ -73,7 +96,7 @@ async def download_song(link: str) -> str:
 
 
 async def download_video(link: str) -> str:
-    """Instant stream URL for PyTgCalls video playback."""
+    """Downloads video track via AayuBots API into local MP4 file."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
@@ -83,32 +106,33 @@ async def download_video(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    # Instant Direct Stream
+    # Download from AayuBots API
     if API_URL:
-        stream_url = f"{API_URL}/download?url={video_id}&type=video&api_key={API_KEY}"
-        print(f"[INSTANT PLAY] Passing direct video stream URL to PyTgCalls: {video_id}")
+        params = {"url": video_id, "type": "video", "api_key": API_KEY}
+        headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
 
-        async def _cache_video_worker():
-            try:
-                headers = {
-                    "X-API-KEY": API_KEY,
-                    "Bypass-Tunnel-Reminder": "true",
-                    "bypass-tunnel-reminder": "true",
-                    "User-Agent": "Mozilla/5.0"
-                }
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(stream_url, headers=headers, timeout=aiohttp.ClientTimeout(total=300)) as resp:
-                        if resp.status == 200:
-                            with open(file_path, "wb") as f:
-                                async for chunk in resp.content.iter_chunked(262144):
-                                    f.write(chunk)
-            except Exception:
-                pass
+        try:
+            print(f"[API] Downloading video {video_id} via {API_URL}...")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{API_URL}/download",
+                    params=params,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=300)
+                ) as resp:
+                    if resp.status == 200:
+                        with open(file_path, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(262144):
+                                f.write(chunk)
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            return file_path
+        except Exception as e:
+            print(f"[API ERROR] Video download failed: {e}")
+            if os.path.exists(file_path):
+                try: os.remove(file_path)
+                except Exception: pass
 
-        asyncio.create_task(_cache_video_worker())
-        return stream_url
-
-    # 2. Fallback: Direct yt-dlp video download
+    # Fallback to direct yt-dlp
     try:
         ydl_opts = {
             "format": "best[ext=mp4]/best",
