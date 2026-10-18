@@ -17,11 +17,11 @@ import config
 # AAYU_API_KEY = "AAYU-API-XXXX-XXXXXXXX" (get from @testaayu113bot via /getkey)
 # ========================================================
 
-API_URL = getattr(config, "API_URL", None) or os.environ.get("AAYU_API_URL") or os.environ.get("MusicSp_API_URL", "http://localhost:8080")
+API_URL = getattr(config, "API_URL", None) or os.environ.get("API_URL") or os.environ.get("AAYU_API_URL") or os.environ.get("MusicSp_API_URL", "https://tall-peaches-dig.loca.lt")
 if API_URL:
     API_URL = API_URL.rstrip("/")
 
-API_KEY = getattr(config, "API_KEY", None) or os.environ.get("AAYU_API_KEY") or os.environ.get("MusicSp_API_KEY", None)
+API_KEY = getattr(config, "API_KEY", None) or os.environ.get("API_KEY") or os.environ.get("AAYU_API_KEY") or os.environ.get("MusicSp_API_KEY", "AAYU-API-80FF-83BD866C")
 
 DOWNLOAD_DIR = "downloads"
 
@@ -48,9 +48,15 @@ async def download_song(link: str) -> str:
         if API_KEY:
             params["api_key"] = API_KEY
 
-        headers = {"X-API-KEY": API_KEY} if API_KEY else {}
+        headers = {
+            "X-API-KEY": API_KEY,
+            "Bypass-Tunnel-Reminder": "true",
+            "bypass-tunnel-reminder": "true",
+            "User-Agent": "Mozilla/5.0"
+        }
 
         try:
+            print(f"[API] Downloading audio {video_id} via {API_URL}...")
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{API_URL}/download",
@@ -63,7 +69,10 @@ async def download_song(link: str) -> str:
                             async for chunk in resp.content.iter_chunked(131072):
                                 f.write(chunk)
                         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            print(f"[API SUCCESS] Successfully downloaded audio {video_id} ({os.path.getsize(file_path)} bytes)")
                             return file_path
+                    else:
+                        print(f"[API ERROR] API returned HTTP {resp.status} for {video_id}")
         except Exception as e:
             print(f"[API ERROR] Failed downloading from API: {e}")
             if os.path.exists(file_path):
@@ -113,9 +122,15 @@ async def download_video(link: str) -> str:
         if API_KEY:
             params["api_key"] = API_KEY
 
-        headers = {"X-API-KEY": API_KEY} if API_KEY else {}
+        headers = {
+            "X-API-KEY": API_KEY,
+            "Bypass-Tunnel-Reminder": "true",
+            "bypass-tunnel-reminder": "true",
+            "User-Agent": "Mozilla/5.0"
+        }
 
         try:
+            print(f"[API] Downloading video {video_id} via {API_URL}...")
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{API_URL}/download",
@@ -128,7 +143,10 @@ async def download_video(link: str) -> str:
                             async for chunk in resp.content.iter_chunked(131072):
                                 f.write(chunk)
                         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            print(f"[API SUCCESS] Successfully downloaded video {video_id} ({os.path.getsize(file_path)} bytes)")
                             return file_path
+                    else:
+                        print(f"[API ERROR] API returned HTTP {resp.status} for video {video_id}")
         except Exception as e:
             print(f"[API ERROR] Video download from API failed: {e}")
             if os.path.exists(file_path):
