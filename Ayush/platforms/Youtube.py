@@ -32,7 +32,7 @@ def time_to_seconds(time):
 
 
 async def download_song(link: str) -> str:
-    """Instant stream URL for PyTgCalls (Under 1 second playback) + background cache."""
+    """Instant stream URL for PyTgCalls (Under 1 second playback)."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
@@ -42,31 +42,10 @@ async def download_song(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    # 1. Instant Direct Stream: Return streaming URL immediately (< 1 sec play)
+    # Instant Direct Stream: Return streaming URL immediately (< 1 sec play)
     if API_URL:
         stream_url = f"{API_URL}/download?url={video_id}&type=audio&api_key={API_KEY}"
         print(f"[INSTANT PLAY] Passing direct stream URL to PyTgCalls: {video_id}")
-
-        # Cache file in background without blocking playback
-        async def _cache_worker():
-            try:
-                headers = {
-                    "X-API-KEY": API_KEY,
-                    "Bypass-Tunnel-Reminder": "true",
-                    "bypass-tunnel-reminder": "true",
-                    "User-Agent": "Mozilla/5.0"
-                }
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(stream_url, headers=headers, timeout=aiohttp.ClientTimeout(total=180)) as resp:
-                        if resp.status == 200:
-                            with open(file_path, "wb") as f:
-                                async for chunk in resp.content.iter_chunked(262144):
-                                    f.write(chunk)
-                            print(f"[CACHE COMPLETED] Saved {video_id} to disk for instant replay.")
-            except Exception as e:
-                print(f"[CACHE ERROR] {e}")
-
-        asyncio.create_task(_cache_worker())
         return stream_url
 
     # 2. Fallback: Direct yt-dlp download if API is temporarily unavailable
