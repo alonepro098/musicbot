@@ -141,6 +141,8 @@ async def stream(
             file_path, direct = await YouTube.download(
                 vidid, mystic, videoid=True, video=status
             )
+            if not file_path or (not str(file_path).startswith("http") and not os.path.exists(file_path)):
+                raise Exception("Invalid file path")
         except:
             raise AssistantErr(_["play_14"])
         if await is_active_chat(chat_id):
