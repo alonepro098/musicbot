@@ -527,6 +527,8 @@ class Call:
         assistant = await group_assistant(self, chat_id)
         language = await get_lang(chat_id)
         _ = get_string(language)
+        if not link or (isinstance(link, str) and not link.startswith("http") and not os.path.exists(link)):
+            raise AssistantErr(_["play_14"])
         if video:
             stream = AudioVideoPiped(
                 link,
