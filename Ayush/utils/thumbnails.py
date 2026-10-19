@@ -10,6 +10,8 @@ from py_yt import VideosSearch
 from config import YOUTUBE_IMG_URL
 from Ayush import app
 
+os.makedirs('cache', exist_ok=True)
+
 # Counter for alternating styles
 THUMB_COUNTER = 0
 
@@ -357,6 +359,7 @@ def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
 # ================= MAIN =================
 async def get_thumb(videoid, user_id=None):
     global THUMB_COUNTER
+    os.makedirs('cache', exist_ok=True)
     out_file = f"cache/{videoid}_{user_id}.png" if user_id else f"cache/{videoid}.png"
     if os.path.isfile(out_file):
         return out_file
