@@ -42,34 +42,37 @@ async def download_song(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
-    # Download from AayuBots API
+    # Download from AayuBots API (Render)
     if API_URL:
         params = {"url": video_id, "type": "audio", "api_key": API_KEY}
         headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
 
-        try:
-            print(f"[API] Downloading audio {video_id} via {API_URL}...")
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{API_URL}/download",
-                    params=params,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=180)
-                ) as resp:
-                    if resp.status == 200:
-                        with open(file_path, "wb") as f:
-                            async for chunk in resp.content.iter_chunked(262144):
-                                f.write(chunk)
-                        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                            print(f"[API SUCCESS] Downloaded {video_id}.mp3 ({os.path.getsize(file_path)} bytes)")
-                            return file_path
-                    else:
-                        print(f"[API ERROR] API returned status {resp.status} for {video_id}")
-        except Exception as e:
-            print(f"[API ERROR] Download failed: {e}")
-            if os.path.exists(file_path):
-                try: os.remove(file_path)
-                except Exception: pass
+        for attempt in range(2):
+            try:
+                print(f"[API] Downloading audio {video_id} via {API_URL} (Attempt {attempt+1})...")
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"{API_URL}/download",
+                        params=params,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=120)
+                    ) as resp:
+                        if resp.status == 200:
+                            with open(file_path, "wb") as f:
+                                async for chunk in resp.content.iter_chunked(262144):
+                                    f.write(chunk)
+                            if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                                print(f"[API SUCCESS] Downloaded {video_id}.mp3 ({os.path.getsize(file_path)} bytes)")
+                                return file_path
+                        else:
+                            print(f"[API ERROR] API returned status {resp.status} for {video_id}")
+            except Exception as e:
+                print(f"[API ERROR] Download attempt {attempt+1} failed: {e}")
+                if os.path.exists(file_path):
+                    try: os.remove(file_path)
+                    except Exception: pass
+            import asyncio
+            await asyncio.sleep(1)
 
     # Fallback to direct yt-dlp if API is temporarily unavailable
     try:
@@ -358,11 +361,12 @@ class YouTubeAPI:
                 downloaded_file = await download_video(link)
             else:
                 downloaded_file = await download_song(link)
-            if downloaded_file:
+            if downloaded_file and os.path.exists(downloaded_file):
                 return downloaded_file, True
-            return None, False
-        except Exception:
-            return None, False
+            raise Exception("Download failed or audio file not created")
+        except Exception as e:
+            print(f"[DOWNLOAD ERROR] {e}")
+            raise e
 
 
 YouTube = YouTubeAPI()
