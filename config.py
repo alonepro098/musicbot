@@ -32,7 +32,7 @@ HEROKU_APP_NAME = getenv("HEROKU_APP_NAME")
 
 HEROKU_API_KEY = getenv("HEROKU_API_KEY")
 
-API_URL= "https://promotion-tex-seal-golden.trycloudflare.com"
+API_URL= "https://aayuapi.onrender.com"
 API_KEY= "AAYU-API-80FF-83BD866C"
 
 UPSTREAM_REPO = getenv(
