@@ -233,7 +233,7 @@ class YouTubeAPI:
                 duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
             return title, duration_min, duration_sec, thumbnail, vidid
         except Exception:
-            return "", "0:00", 0, "", """
+            return "", "0:00", 0, "", ""
 
     async def title(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
