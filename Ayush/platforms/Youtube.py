@@ -25,6 +25,24 @@ API_KEY = getattr(config, "API_KEY", None) or os.environ.get("API_KEY") or os.en
 
 DOWNLOAD_DIR = "downloads"
 
+async def search_via_api(query: str, limit: int = 1) -> list:
+    """Searches tracks via AayuBots API (Render) to bypass YouTube IP blocks."""
+    if not API_URL:
+        return []
+    try:
+        clean_query = query.replace("https://www.youtube.com/watch?v=", "").replace("https://youtu.be/", "")
+        params = {"query": clean_query, "limit": limit, "api_key": API_KEY}
+        headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{API_URL}/search", params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data.get("results", [])
+    except Exception as e:
+        print(f"[API SEARCH ERROR] {e}")
+    return []
+
+
 
 def time_to_seconds(time):
     stringt = str(time)
@@ -188,18 +206,34 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
-        results = VideosSearch(link, limit=1)
-        res = await results.next()
-        if not res or not res.get("result"):
-            return "", "0:00", 0, "", ""
-        for result in res["result"]:
-            title = result.get("title", "")
-            duration_min = result.get("duration", "0:00")
-            thumbnails = result.get("thumbnails", [])
-            thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else ""
-            vidid = result.get("id", "")
-            duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
-        return title, duration_min, duration_sec, thumbnail, vidid
+
+        # API search first
+        api_results = await search_via_api(link, limit=1)
+        if api_results:
+            item = api_results[0]
+            vidid = item.get("id", "")
+            title = item.get("title", "")
+            duration_sec = int(item.get("duration", 0) or 0)
+            duration_min = f"{duration_sec // 60}:{duration_sec % 60:02d}"
+            thumbnail = item.get("thumbnail", "")
+            return title, duration_min, duration_sec, thumbnail, vidid
+
+        # Fallback to local VideosSearch
+        try:
+            results = VideosSearch(link, limit=1)
+            res = await results.next()
+            if not res or not res.get("result"):
+                return "", "0:00", 0, "", ""
+            for result in res["result"]:
+                title = result.get("title", "")
+                duration_min = result.get("duration", "0:00")
+                thumbnails = result.get("thumbnails", [])
+                thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else ""
+                vidid = result.get("id", "")
+                duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
+            return title, duration_min, duration_sec, thumbnail, vidid
+        except Exception:
+            return "", "0:00", 0, "", """
 
     async def title(self, link: str, videoid: Union[bool, str] = None):
         if videoid:
@@ -276,6 +310,25 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
+            
+        # Try high-speed API search first (Bypasses YouTube datacenter IP ban)
+        api_results = await search_via_api(link, limit=1)
+        if api_results:
+            item = api_results[0]
+            vidid = item.get("id", "")
+            title = item.get("title", "")
+            sec = int(item.get("duration", 0) or 0)
+            duration_min = f"{sec // 60}:{sec % 60:02d}"
+            track_details = {
+                "title": title,
+                "link": f"https://www.youtube.com/watch?v={vidid}",
+                "vidid": vidid,
+                "duration_min": duration_min,
+                "thumb": item.get("thumbnail", ""),
+            }
+            return track_details, vidid
+
+        # Fallback to local VideosSearch
         try:
             results = VideosSearch(link, limit=1)
             res = await results.next()
