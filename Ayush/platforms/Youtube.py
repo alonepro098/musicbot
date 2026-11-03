@@ -13,11 +13,17 @@ from py_yt import VideosSearch, Playlist
 import aiohttp
 import config
 
+# Optional local cryptography support (falls back to AayuBots API if not installed)
+HAS_CRYPTO = False
 try:
-    from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
-except ImportError:
-    from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES
-from cryptography.hazmat.primitives.ciphers import Cipher, modes
+    try:
+        from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
+    except Exception:
+        from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES
+    from cryptography.hazmat.primitives.ciphers import Cipher, modes
+    HAS_CRYPTO = True
+except Exception:
+    HAS_CRYPTO = False
 
 # ========================================================
 # AAYUBOTS CUSTOM MUSIC STREAMING API INTEGRATION
@@ -35,6 +41,8 @@ os.makedirs("cache", exist_ok=True)
 
 def decrypt_saavn_url(encrypted_url: str, quality: str = "320") -> str:
     """Decrypts JioSaavn encrypted_media_url to direct CDN streaming URL."""
+    if not HAS_CRYPTO or not encrypted_url:
+        return ""
     try:
         DES_KEY = b"38346591"
         cipher = Cipher(TripleDES(DES_KEY * 3), modes.ECB())
@@ -52,32 +60,55 @@ def decrypt_saavn_url(encrypted_url: str, quality: str = "320") -> str:
 
 def get_saavn_stream_sync(song_id: str) -> dict:
     """Synchronously fetches exact 320kbps CDN stream from JioSaavn."""
-    try:
-        sid = song_id.replace("saavn_", "").strip()
-        url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0%3F_marker%3D0&_format=json&pids={sid}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as res:
-            data = json.loads(res.read().decode("utf-8"))
-        s = data.get(sid)
-        if not s:
-            return None
-        enc_url = s.get("encrypted_media_url")
-        if not enc_url:
-            return None
-        cdn_url = decrypt_saavn_url(enc_url, quality="320")
-        duration = int(s.get("duration", 0) or 0)
-        return {
-            "id": sid,
-            "title": s.get("song", "").replace("&quot;", '"').replace("&#039;", "'"),
-            "artist": s.get("primary_artists", ""),
-            "duration": duration,
-            "duration_min": f"{duration // 60}:{duration % 60:02d}",
-            "thumb": s.get("image", "").replace("150x150", "500x500"),
-            "stream_url": cdn_url,
-        }
-    except Exception as e:
-        print(f"[SAAVN DETAILS ERROR] {e}")
-        return None
+    sid = song_id.replace("saavn_", "").strip()
+
+    # 1. Local decryption if cryptography module is installed
+    if HAS_CRYPTO:
+        try:
+            url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0%3F_marker%3D0&_format=json&pids={sid}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as res:
+                data = json.loads(res.read().decode("utf-8"))
+            s = data.get(sid)
+            if s and s.get("encrypted_media_url"):
+                cdn_url = decrypt_saavn_url(s.get("encrypted_media_url"), quality="320")
+                if cdn_url:
+                    duration = int(s.get("duration", 0) or 0)
+                    return {
+                        "id": sid,
+                        "title": s.get("song", "").replace("&quot;", '"').replace("&#039;", "'"),
+                        "artist": s.get("primary_artists", ""),
+                        "duration": duration,
+                        "duration_min": f"{duration // 60}:{duration % 60:02d}",
+                        "thumb": s.get("image", "").replace("150x150", "500x500"),
+                        "stream_url": cdn_url,
+                    }
+        except Exception as e:
+            print(f"[LOCAL SAAVN ERROR] {e}")
+
+    # 2. AayuBots API (Render) provides stream URL directly
+    if API_URL:
+        try:
+            url = f"{API_URL}/saavn/stream?query={sid}&api_key={API_KEY}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as res:
+                data = json.loads(res.read().decode("utf-8"))
+                if data.get("status") and data.get("data"):
+                    d = data["data"]
+                    duration = int(d.get("duration", 0) or 0)
+                    return {
+                        "id": sid,
+                        "title": d.get("title", ""),
+                        "artist": d.get("artist", ""),
+                        "duration": duration,
+                        "duration_min": f"{duration // 60}:{duration % 60:02d}",
+                        "thumb": d.get("thumbnail", ""),
+                        "stream_url": d.get("stream_url", ""),
+                    }
+        except Exception as e:
+            print(f"[API SAAVN ERROR] {e}")
+
+    return None
 
 
 async def search_via_saavn(query: str) -> dict:
