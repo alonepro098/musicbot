@@ -1,51 +1,65 @@
 import os
 import re
-import random
-import textwrap
 import aiofiles
 import aiohttp
-
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from py_yt import VideosSearch
-from config import YOUTUBE_IMG_URL
-from Ayush import app
+import random
+import textwrap
+import config
 
-os.makedirs('cache', exist_ok=True)
+try:
+    from config import YOUTUBE_IMG_URL
+except Exception:
+    YOUTUBE_IMG_URL = "https://i.ibb.co/NnfW2VRQ/file-3734.jpg"
 
-# Counter for alternating styles
+try:
+    from Ayush import app
+except Exception:
+    app = None
+
 THUMB_COUNTER = 0
 
-# ================= UTILS =================
+
+# ================= HELPERS =================
 def changeImageSize(maxWidth, maxHeight, image):
-    ratio = max(maxWidth / image.size[0], maxHeight / image.size[1])
-    return image.resize(
-        (int(image.size[0] * ratio), int(image.size[1] * ratio)),
-        Image.LANCZOS
-    )
+    widthRatio = maxWidth / image.size[0]
+    heightRatio = maxHeight / image.size[1]
+    newRatio = widthRatio if widthRatio < heightRatio else heightRatio
+    newWidth = int(round(image.size[0] * newRatio))
+    newHeight = int(round(image.size[1] * newRatio))
+    newImage = image.resize((newWidth, newHeight))
+    return newImage
 
 
-def clean_title(text):
-    text = re.sub(r"\W+", " ", text)
-    return text.strip()[:50]
+def add_corners(im, rad=100):
+    circle = Image.new("L", (rad * 2, rad * 2), 0)
+    draw = ImageDraw.Draw(circle)
+    draw.ellipse((0, 0, rad * 2, rad * 2), fill=255)
+    alpha = Image.new("L", im.size, 255)
+    w, h = im.size
+    alpha.paste(circle.crop((0, 0, rad, rad)), (0, 0))
+    alpha.paste(circle.crop((0, rad, rad, rad * 2)), (0, h - rad))
+    alpha.paste(circle.crop((rad, 0, rad * 2, rad)), (w - rad, 0))
+    alpha.paste(circle.crop((rad, rad, rad * 2, rad * 2)), (w - rad, h - rad))
+    im.putalpha(alpha)
+    return im
 
 
-def add_corners(im):
-    bigsize = (im.size[0] * 3, im.size[1] * 3)
-    mask = Image.new("L", bigsize, 0)
-    ImageDraw.Draw(mask).ellipse((0, 0) + bigsize, fill=255)
-    mask = mask.resize(im.size, Image.LANCZOS)
-    mask = ImageChops.darker(mask, im.split()[-1])
-    im.putalpha(mask)
+def clean_title(title: str, max_chars: int = 38) -> str:
+    title = re.sub(r"\(.*?\)|\[.*?\]", "", title)
+    title = re.sub(r"[\"\'|#@*:]", "", title)
+    title = re.sub(r"\s+", " ", title).strip()
+    return title[:max_chars].strip()
 
 
 async def _get_user_dp(user_id):
-    if not user_id:
+    if not user_id or not app:
         return None
     try:
-        user = await app.get_users(user_id)
-        if user and user.photo:
-            file_id = user.photo.big_file_id
-            local_path = await app.download_media(file_id, file_name=f"cache/user_{user_id}.jpg")
+        photos = [p async for p in app.get_chat_photos(user_id, limit=1)]
+        if photos:
+            local_path = await app.download_media(photos[0].file_id, file_name=f"cache/user_{user_id}.jpg")
             if local_path and os.path.exists(local_path):
                 img = Image.open(local_path).convert("RGBA")
                 return img
@@ -78,7 +92,7 @@ NEON_COLORS = [
 
 # ================= STYLE 1: NEON CARD =================
 def gen_thumb_style1(yt, title, duration, views, videoid, user_img=None):
-    bg = changeImageSize(1280, 720, yt)
+    bg = yt.resize((1280, 720))
     bg = bg.filter(ImageFilter.GaussianBlur(22))
     bg = ImageEnhance.Brightness(bg).enhance(0.40)
 
@@ -118,9 +132,14 @@ def gen_thumb_style1(yt, title, duration, views, videoid, user_img=None):
     bg.alpha_composite(border)
     bg.paste(yt_thumb, (x, y), yt_thumb)
 
-    title_font = ImageFont.truetype("Ayush/assets/font.ttf", 46)
-    info_font = ImageFont.truetype("Ayush/assets/font2.ttf", 30)
-    watermark_font = ImageFont.truetype("Ayush/assets/font2.ttf", 24)
+    try:
+        title_font = ImageFont.truetype("Ayush/assets/font.ttf", 46)
+        info_font = ImageFont.truetype("Ayush/assets/font2.ttf", 30)
+        watermark_font = ImageFont.truetype("Ayush/assets/font2.ttf", 24)
+    except Exception:
+        title_font = ImageFont.load_default()
+        info_font = ImageFont.load_default()
+        watermark_font = ImageFont.load_default()
 
     title_w = draw.textlength(title, font=title_font)
     draw.text(
@@ -128,17 +147,19 @@ def gen_thumb_style1(yt, title, duration, views, videoid, user_img=None):
         title,
         font=title_font,
         fill="white",
-        stroke_width=2,
-        stroke_fill=border_color,
     )
 
-    username = getattr(app, "username", None) or "MusicBot"
-    info_text = f"YouTube : {views} | Time : {duration} | Player : @{username}"
-    info_w = draw.textlength(info_text, font=info_font)
-
     draw.text(
-        ((1280 - info_w) // 2, y + thumb_h + 40),
-        info_text,
+        (40, 650),
+        f"TIME: {duration}",
+        font=info_font,
+        fill=border_color,
+    )
+
+    vw = draw.textlength(f"VIEWS: {views}", font=info_font)
+    draw.text(
+        (1280 - vw - 40, 650),
+        f"VIEWS: {views}",
         font=info_font,
         fill=border_color,
     )
@@ -154,7 +175,7 @@ def gen_thumb_style1(yt, title, duration, views, videoid, user_img=None):
 
 # ================= STYLE 2: CIRCLE DISC POSTER =================
 def gen_thumb_style2(yt, title, duration, views, videoid, user_img=None):
-    image1 = changeImageSize(1280, 720, yt)
+    image1 = yt.resize((1280, 720))
     image2 = image1.convert("RGBA")
     background = image2.filter(ImageFilter.BoxBlur(28))
     enhancer = ImageEnhance.Brightness(background)
@@ -190,11 +211,16 @@ def gen_thumb_style2(yt, title, duration, views, videoid, user_img=None):
     background.paste(border_ring, (disc_x - 5, disc_y - 5), mask=border_ring)
 
     draw = ImageDraw.Draw(background)
-    font_large = ImageFont.truetype("Ayush/assets/font.ttf", 46)
-    font_mid = ImageFont.truetype("Ayush/assets/font.ttf", 36)
-    font_small = ImageFont.truetype("Ayush/assets/font2.ttf", 28)
+    try:
+        font_large = ImageFont.truetype("Ayush/assets/font.ttf", 46)
+        font_mid = ImageFont.truetype("Ayush/assets/font.ttf", 36)
+        font_small = ImageFont.truetype("Ayush/assets/font2.ttf", 28)
+    except Exception:
+        font_large = ImageFont.load_default()
+        font_mid = ImageFont.load_default()
+        font_small = ImageFont.load_default()
 
-    header_text = "✦ STARTED PLAYING ✦"
+    header_text = "NOW PLAYING"
     hw = draw.textlength(header_text, font=font_large)
     draw.text(
         ((1280 - hw) / 2, 35),
@@ -205,52 +231,43 @@ def gen_thumb_style2(yt, title, duration, views, videoid, user_img=None):
         font=font_large,
     )
 
-    para = textwrap.wrap(title, width=35)
-    try:
-        if len(para) > 0 and para[0]:
-            tw1 = draw.textlength(para[0], font=font_mid)
-            draw.text(
-                ((1280 - tw1) / 2, 515),
-                para[0],
-                fill="white",
-                stroke_width=1,
-                stroke_fill="white",
-                font=font_mid,
-            )
-        if len(para) > 1 and para[1]:
-            tw2 = draw.textlength(para[1], font=font_mid)
-            draw.text(
-                ((1280 - tw2) / 2, 565),
-                para[1],
-                fill="white",
-                stroke_width=1,
-                stroke_fill="white",
-                font=font_mid,
-            )
-    except Exception:
-        pass
-
-    username = getattr(app, "username", None) or "MusicBot"
-    duration_text = f"⏱️ {duration} Mins | 👁️ {views} Views | @{username}"
-    dw = draw.textlength(duration_text, font=font_small)
+    tw = draw.textlength(title, font=font_mid)
     draw.text(
-        ((1280 - dw) / 2, 645),
-        duration_text,
-        fill=border_color,
+        ((1280 - tw) / 2, 520),
+        title,
+        fill="white",
+        font=font_mid,
+    )
+
+    info_str = f"Duration: {duration} min   |   Views: {views}"
+    iw = draw.textlength(info_str, font=font_small)
+    draw.text(
+        ((1280 - iw) / 2, 590),
+        info_str,
+        fill=glow_color,
         font=font_small,
     )
+
+    # User Profile Avatar badge at bottom right
+    if user_img:
+        try:
+            u_img = user_img.resize((90, 90), Image.LANCZOS)
+            add_corners(u_img, rad=45)
+            background.paste(u_img, (1140, 590), mask=u_img)
+        except Exception:
+            pass
+
     return background
 
 
-# ================= STYLE 3: FALLENMUSIC CIRCLE DISK + USER DP =================
+# ================= STYLE 3: FALLENMUSIC DISC FRAME + USER DP =================
 def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
-    image1 = changeImageSize(1280, 720, yt)
+    image1 = yt.resize((1280, 720))
     image2 = image1.convert("RGBA")
-    background = image2.filter(ImageFilter.BoxBlur(30))
+    background = image2.filter(ImageFilter.BoxBlur(20))
     enhancer = ImageEnhance.Brightness(background)
-    background = enhancer.enhance(0.60)
+    background = enhancer.enhance(0.55)
 
-    # Use circle.png asset
     circle_asset = "Ayush/assets/circle.png"
     if os.path.exists(circle_asset):
         try:
@@ -261,7 +278,7 @@ def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
     else:
         image3 = None
 
-    # Big circular crop for YouTube song thumbnail
+    # Big circular crop for song thumbnail
     Xcenter = yt.width / 2
     Ycenter = yt.height / 2
     crop_size = min(yt.width, yt.height) // 2
@@ -277,36 +294,34 @@ def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
     width = int((1280 - 365) / 2)
     background.paste(logo, (width + 2, 138), mask=logo)
 
-    # Small circular crop for User DP at position (710, 427) size 107x107
+    # Small circular crop for User DP
     if user_img:
         try:
-            u_img = changeImageSize(107, 107, user_img).convert("RGBA")
-            u_img = u_img.resize((107, 107), Image.LANCZOS)
+            u_img = user_img.resize((107, 107), Image.LANCZOS)
             add_corners(u_img)
-            
-            # White border circle around user DP
             border_dp = Image.new("RGBA", (107, 107), (0, 0, 0, 0))
             b_draw = ImageDraw.Draw(border_dp)
             b_draw.ellipse((0, 0, 107, 107), outline="white", width=3)
             u_img.alpha_composite(border_dp)
-            
             background.paste(u_img, (710, 427), mask=u_img)
         except Exception:
             pass
     else:
-        # Default circular avatar badge
         default_dp = Image.new("RGBA", (107, 107), (0, 0, 0, 0))
         d_draw = ImageDraw.Draw(default_dp)
         d_draw.ellipse((0, 0, 107, 107), fill=(75, 75, 105, 255), outline="white", width=3)
         background.paste(default_dp, (710, 427), mask=default_dp)
 
-    # Overlay circle.png frame
     if image3:
         background.paste(image3, (0, 0), mask=image3)
 
     draw = ImageDraw.Draw(background)
-    font = ImageFont.truetype("Ayush/assets/font.ttf", 45)
-    arial = ImageFont.truetype("Ayush/assets/font2.ttf", 30)
+    try:
+        font = ImageFont.truetype("Ayush/assets/font.ttf", 45)
+        arial = ImageFont.truetype("Ayush/assets/font2.ttf", 30)
+    except Exception:
+        font = ImageFont.load_default()
+        arial = ImageFont.load_default()
 
     header_text = "STARTED PLAYING"
     hw = draw.textlength(header_text, font=font)
@@ -344,8 +359,7 @@ def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
     except Exception:
         pass
 
-    username = getattr(app, "username", None) or "MusicBot"
-    dur_text = f"Duration: {duration} Mins | Views: {views} | @{username}"
+    dur_text = f"Duration: {duration} Mins"
     dw = draw.textlength(dur_text, font=arial)
     draw.text(
         ((1280 - dw) / 2, 660),
@@ -357,7 +371,7 @@ def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
 
 
 # ================= MAIN =================
-async def get_thumb(videoid, user_id=None):
+async def get_thumb(videoid, user_id=None, custom_thumb=None):
     global THUMB_COUNTER
     os.makedirs('cache', exist_ok=True)
     out_file = f"cache/{videoid}_{user_id}.png" if user_id else f"cache/{videoid}.png"
@@ -366,21 +380,34 @@ async def get_thumb(videoid, user_id=None):
 
     temp_file = f"cache/temp_{videoid}.jpg"
 
-    # 1. Download YouTube video thumbnail image directly from Google CDN (No IP blocking!)
-    thumb_urls = [
-        f"https://img.youtube.com/vi/{videoid}/maxresdefault.jpg",
-        f"https://img.youtube.com/vi/{videoid}/hqdefault.jpg",
-        f"https://i.ytimg.com/vi/{videoid}/hqdefault.jpg",
-    ]
+    thumb_urls = []
+    if custom_thumb and str(custom_thumb).startswith("http"):
+        thumb_urls.append(custom_thumb)
+
+    if str(videoid).startswith("saavn_"):
+        sid = str(videoid).replace("saavn_", "").strip()
+        try:
+            from Ayush.platforms.Youtube import get_saavn_stream_sync
+            sdata = get_saavn_stream_sync(sid)
+            if sdata and sdata.get("thumb"):
+                thumb_urls.append(sdata["thumb"])
+        except Exception:
+            pass
+    else:
+        thumb_urls.extend([
+            f"https://img.youtube.com/vi/{videoid}/maxresdefault.jpg",
+            f"https://img.youtube.com/vi/{videoid}/hqdefault.jpg",
+            f"https://i.ytimg.com/vi/{videoid}/hqdefault.jpg",
+        ])
 
     downloaded = False
     async with aiohttp.ClientSession() as s:
         for t_url in thumb_urls:
             try:
-                async with s.get(t_url, timeout=aiohttp.ClientTimeout(total=8)) as r:
+                async with s.get(t_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=8)) as r:
                     if r.status == 200:
                         data = await r.read()
-                        if len(data) > 2000:
+                        if len(data) > 1500:
                             async with aiofiles.open(temp_file, "wb") as f:
                                 await f.write(data)
                             downloaded = True
@@ -397,7 +424,7 @@ async def get_thumb(videoid, user_id=None):
         print("Failed to open temp thumbnail:", e)
         return temp_file
 
-    # 2. Get Metadata (Title, Duration, Views) safely without crashing
+    # Metadata
     title = f"Track {videoid}"
     duration = "03:45"
     views = "1.2M"
@@ -414,10 +441,8 @@ async def get_thumb(videoid, user_id=None):
     except Exception:
         pass
 
-    # 3. User Avatar
     user_img = await _get_user_dp(user_id)
 
-    # 4. Generate Stylish Card (3 Alternating Styles)
     try:
         THUMB_COUNTER += 1
         rem = THUMB_COUNTER % 3
