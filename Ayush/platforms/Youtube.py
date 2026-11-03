@@ -269,15 +269,7 @@ class YouTubeAPI:
         if "&" in link:
             link = link.split("&")[0]
 
-        is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
-
-        # 1. JioSaavn fast search
-        if not is_direct_url:
-            saavn_data = await search_via_saavn(link)
-            if saavn_data and saavn_data.get("title"):
-                return saavn_data["title"], "3:45", 225, saavn_data.get("thumb", ""), saavn_data["id"]
-
-        # 2. AayuBots API Search
+        # 1. API Search
         api_results = await search_via_api(link, limit=1)
         if api_results:
             item = api_results[0]
@@ -285,10 +277,10 @@ class YouTubeAPI:
             title = item.get("title", "")
             duration_sec = int(item.get("duration", 0) or 0)
             duration_min = f"{duration_sec // 60}:{duration_sec % 60:02d}"
-            thumbnail = item.get("thumbnail", "")
+            thumbnail = item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
             return title, duration_min, duration_sec, thumbnail, vidid
 
-        # 3. Local yt-dlp Android Search
+        # 2. Local yt-dlp Android Search
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -297,10 +289,10 @@ class YouTubeAPI:
             title = item.get("title", "")
             duration_sec = int(item.get("duration", 0) or 0)
             duration_min = f"{duration_sec // 60}:{duration_sec % 60:02d}"
-            thumbnail = item.get("thumbnail", "")
+            thumbnail = item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
             return title, duration_min, duration_sec, thumbnail, vidid
 
-        # 4. Fallback to local VideosSearch
+        # 3. Fallback to local VideosSearch
         try:
             results = VideosSearch(link, limit=1)
             res = await results.next()
@@ -369,24 +361,7 @@ class YouTubeAPI:
         if "&" in link:
             link = link.split("&")[0]
 
-        is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
-
-        # 1. Direct JioSaavn Search (0.2s instant response for text queries)
-        if not is_direct_url:
-            saavn_data = await search_via_saavn(link)
-            if saavn_data and saavn_data.get("title"):
-                title = saavn_data["title"]
-                sid = saavn_data["id"]
-                track_details = {
-                    "title": title,
-                    "link": f"https://www.youtube.com/watch?v={sid}",
-                    "vidid": sid,
-                    "duration_min": "3:45",
-                    "thumb": saavn_data.get("thumb", ""),
-                }
-                return track_details, sid
-
-        # 2. AayuBots API Search (Render yt-dlp Android client)
+        # 1. AayuBots API Search (Fast & uses Render Android client)
         api_results = await search_via_api(link, limit=1)
         if api_results:
             item = api_results[0]
@@ -399,11 +374,11 @@ class YouTubeAPI:
                 "link": f"https://www.youtube.com/watch?v={vidid}",
                 "vidid": vidid,
                 "duration_min": duration_min,
-                "thumb": item.get("thumbnail", ""),
+                "thumb": item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg",
             }
             return track_details, vidid
 
-        # 3. Local yt-dlp Android Search (100% bypasses datacenter IP blocks)
+        # 2. Local yt-dlp Android Search (Zero IP blocks)
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -417,11 +392,11 @@ class YouTubeAPI:
                 "link": f"https://www.youtube.com/watch?v={vidid}",
                 "vidid": vidid,
                 "duration_min": duration_min,
-                "thumb": item.get("thumbnail", ""),
+                "thumb": item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg",
             }
             return track_details, vidid
 
-        # 4. Fallback to VideosSearch
+        # 3. Fallback to VideosSearch
         try:
             results = VideosSearch(link, limit=1)
             res = await results.next()
@@ -432,7 +407,7 @@ class YouTubeAPI:
                 vidid = result.get("id", "")
                 yturl = result.get("link", "")
                 thumbnails = result.get("thumbnails", [])
-                thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else ""
+                thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
                 track_details = {
                     "title": title,
                     "link": yturl,
