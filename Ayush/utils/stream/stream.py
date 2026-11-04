@@ -77,8 +77,11 @@ async def stream(
                     file_path, direct = await YouTube.download(
                         vidid, mystic, video=status, videoid=True
                     )
-                except:
-                    raise AssistantErr(_["play_14"])
+                except Exception as dl_err:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"[STREAM DOWNLOAD ERROR]: {dl_err}", flush=True)
+                    raise AssistantErr(f"❌ Download Error: {dl_err}")
                 await Aayu.join_call(
                     chat_id,
                     original_chat_id,
@@ -143,8 +146,11 @@ async def stream(
             )
             if not file_path or (not str(file_path).startswith("http") and not os.path.exists(file_path)):
                 raise Exception("Invalid file path")
-        except:
-            raise AssistantErr(_["play_14"])
+        except Exception as dl_err:
+            import traceback
+            traceback.print_exc()
+            print(f"[STREAM DOWNLOAD ERROR]: {dl_err}", flush=True)
+            raise AssistantErr(f"❌ Download Error: {dl_err}")
         if await is_active_chat(chat_id):
             await put_queue(
                 chat_id,
