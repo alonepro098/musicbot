@@ -1,20 +1,27 @@
+import asyncio
 import os
 import re
-import asyncio
 import urllib.parse
 import urllib.request
 import json
+import base64
 from typing import Union
-from pyrogram.enums import MessageEntityType
-from youtubesearchpython.__future__ import VideosSearch
-def time_to_seconds(time):
-    stringt = str(time)
-    return sum(int(x) * 60**i for i, x in enumerate(reversed(stringt.split(":"))))
 import yt_dlp
+from pyrogram.enums import MessageEntityType
+from pyrogram.types import Message
 import aiohttp
 import config
 
-# Optional local cryptography support
+try:
+    from py_yt import VideosSearch, Playlist
+except ImportError:
+    try:
+        from youtubesearchpython.__future__ import VideosSearch
+        from youtubesearchpython import Playlist
+    except ImportError:
+        VideosSearch = None
+        Playlist = None
+
 HAS_CRYPTO = False
 try:
     try:
@@ -22,15 +29,17 @@ try:
     except ImportError:
         from cryptography.hazmat.primitives.ciphers.algorithms import TripleDES
     from cryptography.hazmat.primitives.ciphers import Cipher, modes
-    import base64
     HAS_CRYPTO = True
 except Exception:
     HAS_CRYPTO = False
 
 DES_KEY = b"38346591"
 
-API_URL = getattr(config, "API_URL", "https://aayuapi.onrender.com")
-API_KEY = getattr(config, "API_KEY", "AAYU-API-80FF-83BD866C")
+API_URL = getattr(config, "API_URL", None) or os.environ.get("API_URL") or os.environ.get("AAYU_API_URL") or "https://aayuapi.onrender.com"
+if API_URL:
+    API_URL = API_URL.rstrip("/")
+
+API_KEY = getattr(config, "API_KEY", None) or os.environ.get("API_KEY") or os.environ.get("AAYU_API_KEY") or "AAYU-API-80FF-83BD866C"
 
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
@@ -63,43 +72,6 @@ def clean_query_for_saavn(query: str):
     return list(dict.fromkeys(candidates))
 
 
-async def normalize_audio(raw_file: str, final_file: str) -> str:
-    """Converts/remuxes audio into clean 48000Hz 192kbps MP3 for 100% stutter-free PyTgCalls playback."""
-    if not os.path.exists(raw_file) or os.path.getsize(raw_file) < 500:
-        return None
-    try:
-        cmd = [
-            "ffmpeg", "-y", "-i", raw_file,
-            "-vn", "-c:a", "libmp3lame", "-b:a", "192k", "-ar", "48000", "-ac", "2",
-            final_file
-        ]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL
-        )
-        await asyncio.wait_for(proc.wait(), timeout=35)
-        if os.path.exists(final_file) and os.path.getsize(final_file) > 1000:
-            if os.path.exists(raw_file) and raw_file != final_file:
-                try: os.remove(raw_file)
-                except Exception: pass
-            print(f"[FFMPEG SUCCESS] Normalized audio to 48kHz 192kbps: {final_file}")
-            return final_file
-    except Exception as e:
-        print(f"[FFMPEG NORMALIZE WARNING] {e}")
-
-    # Fallback if ffmpeg is missing or fails: ensure final_file exists
-    if os.path.exists(raw_file):
-        try:
-            if os.path.exists(final_file):
-                os.remove(final_file)
-            os.rename(raw_file, final_file)
-            return final_file
-        except Exception:
-            return raw_file
-    return final_file if os.path.exists(final_file) else None
-
-
 def decrypt_saavn_url(encrypted_url: str, quality: str = "320") -> str:
     """Decrypts JioSaavn encrypted_media_url to direct CDN streaming URL."""
     if not HAS_CRYPTO or not encrypted_url:
@@ -112,8 +84,6 @@ def decrypt_saavn_url(encrypted_url: str, quality: str = "320") -> str:
         media_url = decrypted[:-pad].decode("utf-8")
         if quality == "320":
             media_url = media_url.replace("_96.mp4", "_320.mp4").replace("_160.mp4", "_320.mp4")
-        elif quality == "160":
-            media_url = media_url.replace("_96.mp4", "_160.mp4").replace("_320.mp4", "_160.mp4")
         return media_url
     except Exception as e:
         print(f"[SAAVN DECRYPT ERROR] {e}")
@@ -124,43 +94,51 @@ def get_saavn_stream_sync(song_id: str) -> dict:
     """Synchronously fetches exact 320kbps CDN stream from JioSaavn."""
     sid = song_id.replace("saavn_", "").strip()
 
+    # 1. Local decryption
     if HAS_CRYPTO:
         try:
             url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0%3F_marker%3D0&_format=json&pids={sid}"
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=5) as res:
-                content = res.read().decode("utf-8", errors="ignore")
-                if "{" in content:
-                    content = content[content.index("{") : content.rindex("}") + 1]
-                    data = json.loads(content)
-                    track = data.get(sid, {})
-                    enc_url = track.get("encrypted_media_url", "")
-                    stream_url = decrypt_saavn_url(enc_url, "320")
-                    if stream_url:
-                        return {
-                            "id": sid,
-                            "title": track.get("song", "Track"),
-                            "artist": track.get("singers", ""),
-                            "duration": int(track.get("duration", 240) or 240),
-                            "thumb": track.get("image", "").replace("150x150", "500x500"),
-                            "stream_url": stream_url,
-                        }
+            with urllib.request.urlopen(req, timeout=6) as res:
+                raw_data = res.read().decode("utf-8", errors="ignore")
+                if "{" in raw_data:
+                    raw_data = raw_data[raw_data.index("{") : raw_data.rindex("}") + 1]
+                    data = json.loads(raw_data)
+                else:
+                    data = {}
+            s = data.get(sid)
+            if s and s.get("encrypted_media_url"):
+                cdn_url = decrypt_saavn_url(s.get("encrypted_media_url"), quality="320")
+                if cdn_url:
+                    duration = int(s.get("duration", 0) or 0)
+                    return {
+                        "id": sid,
+                        "title": s.get("song", "").replace("&quot;", '"').replace("&#039;", "'"),
+                        "artist": s.get("primary_artists", ""),
+                        "duration": duration,
+                        "duration_min": f"{duration // 60}:{duration % 60:02d}",
+                        "thumb": s.get("image", "").replace("150x150", "500x500"),
+                        "stream_url": cdn_url,
+                    }
         except Exception as e:
             print(f"[LOCAL SAAVN ERROR] {e}")
 
+    # 2. AayuBots API fallback
     if API_URL:
         try:
             url = f"{API_URL}/saavn/stream?query={sid}&api_key={API_KEY}"
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=8) as res:
+            with urllib.request.urlopen(req, timeout=10) as res:
                 data = json.loads(res.read().decode("utf-8"))
                 if data.get("status") and data.get("data"):
                     d = data["data"]
+                    duration = int(d.get("duration", 0) or 0)
                     return {
                         "id": sid,
-                        "title": d.get("title", "Track"),
+                        "title": d.get("title", ""),
                         "artist": d.get("artist", ""),
-                        "duration": int(d.get("duration", 240) or 240),
+                        "duration": duration,
+                        "duration_min": f"{duration // 60}:{duration % 60:02d}",
                         "thumb": d.get("thumbnail", ""),
                         "stream_url": d.get("stream_url", ""),
                     }
@@ -185,7 +163,6 @@ async def search_via_saavn(query: str) -> dict:
                         if songs:
                             top = songs[0]
                             top_title = top.get("title", "").replace("&quot;", '"').replace("&#039;", "'")
-                            # Verify meaningful word match
                             w_q = set(re.findall(r'[a-zA-Z]{3,}', cand.lower())) - COMMON_FILTER_WORDS
                             w_t = set(re.findall(r'[a-zA-Z]{3,}', top_title.lower())) - COMMON_FILTER_WORDS
                             if len(w_q.intersection(w_t)) >= 1 or len(w_q) == 0:
@@ -218,47 +195,56 @@ def local_ytdlp_search(query: str, limit: int = 1) -> list:
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             res = ydl.extract_info(f"ytsearch{limit}:{query}", download=False)
-            if res and "entries" in res:
-                return [e for e in res["entries"] if e]
+            if res and res.get("entries"):
+                results = []
+                for entry in res["entries"]:
+                    if not entry:
+                        continue
+                    results.append({
+                        "id": entry.get("id"),
+                        "title": entry.get("title", ""),
+                        "duration": entry.get("duration", 0),
+                        "thumbnail": entry.get("thumbnail") or f"https://img.youtube.com/vi/{entry.get('id')}/hqdefault.jpg"
+                    })
+                return results
     except Exception as e:
         print(f"[LOCAL YTDLP SEARCH ERROR] {e}")
     return []
 
 
 async def search_via_api(query: str, limit: int = 1) -> list:
-    """Searches tracks via AayuBots API (Render) using Android client."""
+    """Searches tracks via AayuBots API (Render) with generous timeout."""
     if not API_URL:
         return []
     try:
-        clean = urllib.parse.quote(str(query))
-        url = f"{API_URL}/search?query={clean}&limit={limit}&api_key={API_KEY}"
+        clean_query = query.replace("https://www.youtube.com/watch?v=", "").replace("https://youtu.be/", "")
+        params = {"query": clean_query, "limit": limit, "api_key": API_KEY}
+        headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
         async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url,
-                headers={"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"},
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as resp:
+            async with session.get(f"{API_URL}/search", params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=25)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    if data.get("status") and data.get("results"):
-                        return data["results"]
+                    return data.get("results", [])
     except Exception as e:
-        print(f"[API SEARCH WARNING] {e}")
+        print(f"[API SEARCH ERROR] {e}")
     return []
 
 
+def time_to_seconds(time):
+    stringt = str(time)
+    return sum(int(x) * 60 ** i for i, x in enumerate(reversed(stringt.split(":"))))
+
+
 async def download_song(link: str) -> str:
-    """Downloads audio track into normalized 48kHz MP3 file for smooth, stutter-free PyTgCalls streaming."""
+    """Downloads audio track into normalized 48kHz MP3 file for smooth PyTgCalls streaming."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
 
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    final_file = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
-    raw_file = os.path.join(DOWNLOAD_DIR, f"raw_{video_id}")
-
-    if os.path.exists(final_file) and os.path.getsize(final_file) > 1000:
-        return final_file
+    file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+        return file_path
 
     # 1. Direct JioSaavn CDN download (Instant 0.2s, 320kbps, zero throttling)
     if video_id.startswith("saavn_"):
@@ -269,70 +255,93 @@ async def download_song(link: str) -> str:
             cdn_url = saavn_data["stream_url"]
             try:
                 print(f"[SAAVN CDN] Downloading {sid} directly from JioSaavn CDN...")
+                temp_raw = os.path.join(DOWNLOAD_DIR, f"temp_{sid}.mp4")
                 async with aiohttp.ClientSession() as session:
                     async with session.get(cdn_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=40)) as resp:
                         if resp.status == 200:
-                            with open(raw_file, "wb") as f:
+                            with open(temp_raw, "wb") as f:
                                 async for chunk in resp.content.iter_chunked(262144):
                                     f.write(chunk)
-                            if os.path.exists(raw_file) and os.path.getsize(raw_file) > 1000:
-                                return await normalize_audio(raw_file, final_file)
+                            if os.path.exists(temp_raw) and os.path.getsize(temp_raw) > 1000:
+                                # Remux/normalize to 48kHz stereo MP3 for 100% stutter-free PyTgCalls streaming
+                                cmd = [
+                                    "ffmpeg", "-y", "-i", temp_raw,
+                                    "-vn", "-c:a", "libmp3lame", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+                                    file_path
+                                ]
+                                try:
+                                    proc = await asyncio.create_subprocess_exec(
+                                        *cmd,
+                                        stdout=asyncio.subprocess.DEVNULL,
+                                        stderr=asyncio.subprocess.DEVNULL
+                                    )
+                                    await asyncio.wait_for(proc.wait(), timeout=30)
+                                except Exception as fe:
+                                    print(f"[FFMPEG REMUX WARNING] {fe}")
+
+                                # If ffmpeg didn't produce file_path, rename temp_raw as fallback
+                                if not os.path.exists(file_path) or os.path.getsize(file_path) < 1000:
+                                    if os.path.exists(file_path):
+                                        try: os.remove(file_path)
+                                        except Exception: pass
+                                    os.rename(temp_raw, file_path)
+                                else:
+                                    if os.path.exists(temp_raw):
+                                        try: os.remove(temp_raw)
+                                        except Exception: pass
+
+                                if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                                    print(f"[SAAVN SUCCESS] Ready: {file_path} ({os.path.getsize(file_path)} bytes)")
+                                    return file_path
             except Exception as e:
                 print(f"[SAAVN DOWNLOAD ERROR] {e}")
-                if os.path.exists(raw_file):
-                    try: os.remove(raw_file)
-                    except Exception: pass
 
     # 2. Download from AayuBots API (Render)
     if API_URL:
         params = {"url": video_id, "type": "audio", "api_key": API_KEY}
         headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
+        for attempt in range(2):
+            try:
+                print(f"[API] Downloading audio {video_id} via {API_URL} (Attempt {attempt+1})...")
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"{API_URL}/download",
+                        params=params,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=45)
+                    ) as resp:
+                        if resp.status == 200:
+                            with open(file_path, "wb") as f:
+                                async for chunk in resp.content.iter_chunked(262144):
+                                    f.write(chunk)
+                            if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                                print(f"[API SUCCESS] Downloaded {file_path} ({os.path.getsize(file_path)} bytes)")
+                                return file_path
+            except Exception as e:
+                print(f"[API ERROR] Download attempt {attempt+1} failed: {e}")
+            await asyncio.sleep(1)
 
-        try:
-            print(f"[API] Downloading audio {video_id} via {API_URL}...")
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{API_URL}/download",
-                    params=params,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=60)
-                ) as resp:
-                    if resp.status == 200:
-                        with open(raw_file, "wb") as f:
-                            async for chunk in resp.content.iter_chunked(262144):
-                                f.write(chunk)
-                        if os.path.exists(raw_file) and os.path.getsize(raw_file) > 1000:
-                            print(f"[API SUCCESS] Downloaded raw audio ({os.path.getsize(raw_file)} bytes). Normalizing...")
-                            return await normalize_audio(raw_file, final_file)
-        except Exception as e:
-            print(f"[API ERROR] API download failed: {e}")
-            if os.path.exists(raw_file):
-                try: os.remove(raw_file)
-                except Exception: pass
-
-    # 3. Fallback to direct yt-dlp with auto geo-unblock
+    # 3. Fallback to direct yt-dlp
     try:
+        temp_yt = os.path.join(DOWNLOAD_DIR, f"yt_{video_id}.%(ext)s")
         ydl_opts = {
             "format": "bestaudio/best",
-            "outtmpl": raw_file,
+            "outtmpl": temp_yt,
             "quiet": True,
             "no_warnings": True,
             "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
         }
         loop = asyncio.get_event_loop()
-        try:
-            await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
-        except Exception as direct_err:
-            # If video is geo-blocked (e.g. Pakistani channel in India), find working mirror
-            err_str = str(direct_err).lower()
-            if "unavailable" in err_str or "blocked" in err_str or "order from the government" in err_str:
-                print(f"[GEO-FALLBACK] {video_id} is blocked. Searching working mirror...")
-                mirror_opts = dict(ydl_opts)
-                mirror_opts["default_search"] = "ytsearch3"
-                await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(mirror_opts).download([video_id]))
-
-        if os.path.exists(raw_file) and os.path.getsize(raw_file) > 1000:
-            return await normalize_audio(raw_file, final_file)
+        await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
+        for f in os.listdir(DOWNLOAD_DIR):
+            if f.startswith(f"yt_{video_id}"):
+                found = os.path.join(DOWNLOAD_DIR, f)
+                if os.path.getsize(found) > 1000:
+                    if os.path.exists(file_path):
+                        try: os.remove(file_path)
+                        except Exception: pass
+                    os.rename(found, file_path)
+                    return file_path
     except Exception as e:
         print(f"[FALLBACK ERROR] Direct download failed: {e}")
 
@@ -340,7 +349,7 @@ async def download_song(link: str) -> str:
 
 
 async def download_video(link: str) -> str:
-    """Downloads video track via AayuBots API into local MP4 file."""
+    """Downloads video track into local MP4 file."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
@@ -403,7 +412,7 @@ class YouTubeAPI:
             return True
         return False
 
-    async def url(self, message_1) -> Union[str, None]:
+    async def url(self, message_1: Message) -> Union[str, None]:
         messages = [message_1]
         if message_1.reply_to_message:
             messages.append(message_1.reply_to_message)
@@ -435,24 +444,13 @@ class YouTubeAPI:
 
         is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
 
-        # 1. Smart JioSaavn Search (Instant 0.2s, 320kbps, 100% matched, zero blocks)
+        # 1. Direct JioSaavn Search (Instant 0.2s, 320kbps, 100% matched, zero blocks)
         if not is_direct_url:
             saavn_data = await search_via_saavn(link)
             if saavn_data and saavn_data.get("title"):
                 return saavn_data["title"], saavn_data.get("duration_min", "4:00"), saavn_data.get("duration", 240), saavn_data.get("thumb", ""), f"saavn_{saavn_data['id']}"
 
-        # 2. AayuBots YouTube API Search
-        api_results = await search_via_api(link, limit=1)
-        if api_results:
-            item = api_results[0]
-            vidid = item.get("id", "")
-            title = item.get("title", "")
-            duration_sec = int(item.get("duration", 0) or 0)
-            duration_min = f"{duration_sec // 60}:{duration_sec % 60:02d}"
-            thumbnail = item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
-            return title, duration_min, duration_sec, thumbnail, vidid
-
-        # 3. Local yt-dlp Android Search
+        # 2. Local yt-dlp Android Search
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -464,21 +462,22 @@ class YouTubeAPI:
             thumbnail = item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
             return title, duration_min, duration_sec, thumbnail, vidid
 
-        # 4. Fallback to local VideosSearch
-        try:
-            results = VideosSearch(link, limit=1)
-            res = await results.next()
-            if res and res.get("result"):
-                result = res["result"][0]
-                title = result.get("title", "")
-                duration_min = result.get("duration", "0:00")
-                thumbnails = result.get("thumbnails", [])
-                thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else ""
-                vidid = result.get("id", "")
-                duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
-                return title, duration_min, duration_sec, thumbnail, vidid
-        except Exception:
-            pass
+        # 3. Fallback to VideosSearch
+        if VideosSearch:
+            try:
+                results = VideosSearch(link, limit=1)
+                res = await results.next()
+                if res and res.get("result"):
+                    result = res["result"][0]
+                    title = result.get("title", "")
+                    duration_min = result.get("duration", "0:00")
+                    thumbnails = result.get("thumbnails", [])
+                    thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else ""
+                    vidid = result.get("id", "")
+                    duration_sec = int(time_to_seconds(duration_min)) if duration_min else 0
+                    return title, duration_min, duration_sec, thumbnail, vidid
+            except Exception:
+                pass
 
         return "", "0:00", 0, "", ""
 
@@ -508,11 +507,12 @@ class YouTubeAPI:
             return 0, f"Video download error: {e}"
 
     async def playlist(self, link, limit, user_id, videoid: Union[bool, str] = None):
-        from Ayush.platforms.Playlist import Playlist
         if videoid:
             link = self.listbase + link
         if "&" in link:
             link = link.split("&")[0]
+        if not Playlist:
+            return []
         try:
             plist = await Playlist.get(link)
         except Exception:
@@ -536,7 +536,7 @@ class YouTubeAPI:
 
         is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
 
-        # 1. Smart JioSaavn Search (Instant 0.2s, 320kbps, 100% matched, zero blocks)
+        # 1. Direct JioSaavn Search (Instant 0.2s response for song queries)
         if not is_direct_url:
             saavn_data = await search_via_saavn(link)
             if saavn_data and saavn_data.get("title"):
@@ -552,24 +552,7 @@ class YouTubeAPI:
                 }
                 return track_details, vidid
 
-        # 2. AayuBots YouTube API Search
-        api_results = await search_via_api(link, limit=1)
-        if api_results:
-            item = api_results[0]
-            vidid = item.get("id", "")
-            title = item.get("title", "")
-            sec = int(item.get("duration", 0) or 0)
-            duration_min = f"{sec // 60}:{sec % 60:02d}"
-            track_details = {
-                "title": title,
-                "link": f"https://www.youtube.com/watch?v={vidid}",
-                "vidid": vidid,
-                "duration_min": duration_min,
-                "thumb": item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg",
-            }
-            return track_details, vidid
-
-        # 3. Local yt-dlp Android Search
+        # 2. Local yt-dlp Android Search (Zero IP blocks)
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -587,27 +570,28 @@ class YouTubeAPI:
             }
             return track_details, vidid
 
-        # 4. Fallback to VideosSearch
-        try:
-            results = VideosSearch(link, limit=1)
-            res = await results.next()
-            if res and res.get("result"):
-                result = res["result"][0]
-                title = result.get("title", "")
-                duration_min = result.get("duration", "0:00")
-                thumbnails = result.get("thumbnails", [])
-                thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else ""
-                vidid = result.get("id", "")
-                track_details = {
-                    "title": title,
-                    "link": f"https://www.youtube.com/watch?v={vidid}",
-                    "vidid": vidid,
-                    "duration_min": duration_min,
-                    "thumb": thumbnail,
-                }
-                return track_details, vidid
-        except Exception:
-            pass
+        # 3. Fallback to VideosSearch
+        if VideosSearch:
+            try:
+                results = VideosSearch(link, limit=1)
+                res = await results.next()
+                if res and res.get("result"):
+                    result = res["result"][0]
+                    title = result.get("title", "")
+                    duration_min = result.get("duration", "0:00")
+                    vidid = result.get("id", "")
+                    thumbnails = result.get("thumbnails", [])
+                    thumbnail = thumbnails[0]["url"].split("?")[0] if thumbnails else f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
+                    track_details = {
+                        "title": title,
+                        "link": f"https://www.youtube.com/watch?v={vidid}",
+                        "vidid": vidid,
+                        "duration_min": duration_min,
+                        "thumb": thumbnail,
+                    }
+                    return track_details, vidid
+            except Exception:
+                pass
 
         return {}, ""
 
@@ -652,6 +636,8 @@ class YouTubeAPI:
             link = self.base + link
         if "&" in link:
             link = link.split("&")[0]
+        if not VideosSearch:
+            return "", "0:00", "", ""
         a = VideosSearch(link, limit=10)
         result = (await a.next()).get("result")
         title = result[query_type]["title"]
