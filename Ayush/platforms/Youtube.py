@@ -150,9 +150,12 @@ async def search_via_saavn(query: str) -> dict:
     return None
 
 
+BLOCKED_CHANNELS = ["ary digital", "hum tv", "geo news", "geo entertainment", "har pal geo", "green tv", "express tv"]
+
 def local_ytdlp_search(query: str, limit: int = 1) -> list:
     """Primary high-precision YouTube search using Android & iOS clients.
-    Finds 100% of Pakistani OSTs, Coke Studio, Bollywood, remixes, and live music."""
+    Finds 100% of Pakistani OSTs, Coke Studio, Bollywood, remixes, and live music.
+    Demotes geo-blocked Pakistani channels so playable artist/audio tracks play smoothly."""
     try:
         ydl_opts = {
             "format": "18/bestaudio/best",
@@ -162,26 +165,32 @@ def local_ytdlp_search(query: str, limit: int = 1) -> list:
             "extractor_args": {"youtube": {"player_client": ["android", "ios"]}},
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            target = query if query.startswith("http") else f"ytsearch{limit + 3}:{query}"
+            target = query if query.startswith("http") else f"ytsearch{limit + 4}:{query}"
             res = ydl.extract_info(target, download=False)
             if res:
                 entries = res.get("entries", [res]) if "entries" in res else [res]
                 results = []
+                blocked_fallback = []
                 for entry in entries:
                     if not entry:
                         continue
                     vid_id = entry.get("id")
                     if not vid_id:
                         continue
-                    results.append({
+                    uploader = (entry.get("uploader") or entry.get("channel") or "").lower()
+                    item = {
                         "id": vid_id,
                         "title": entry.get("title", ""),
                         "duration": entry.get("duration", 0),
                         "thumbnail": entry.get("thumbnail") or f"https://img.youtube.com/vi/{vid_id}/hqdefault.jpg"
-                    })
-                    if len(results) >= limit:
-                        break
-                return results
+                    }
+                    if any(b in uploader for b in BLOCKED_CHANNELS):
+                        blocked_fallback.append(item)
+                    else:
+                        results.append(item)
+                        if len(results) >= limit:
+                            break
+                return results if results else blocked_fallback[:limit]
     except Exception as e:
         print(f"[LOCAL YTDLP SEARCH ERROR] {e}")
     return []
@@ -212,7 +221,14 @@ def time_to_seconds(time):
 
 async def download_song(link: str) -> str:
     """Downloads audio track into normalized 48kHz MP3 file for smooth PyTgCalls streaming."""
-    video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
+    if "youtu.be/" in link:
+        video_id = link.split("youtu.be/")[-1].split("?")[0].split("&")[0]
+    elif "v=" in link:
+        video_id = link.split("v=")[-1].split("&")[0]
+    elif "embed/" in link:
+        video_id = link.split("embed/")[-1].split("?")[0].split("&")[0]
+    else:
+        video_id = link.strip()
     if not video_id or len(video_id) < 3:
         return None
 
@@ -344,7 +360,14 @@ async def download_song(link: str) -> str:
 
 async def download_video(link: str) -> str:
     """Downloads video track into local MP4 file."""
-    video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
+    if "youtu.be/" in link:
+        video_id = link.split("youtu.be/")[-1].split("?")[0].split("&")[0]
+    elif "v=" in link:
+        video_id = link.split("v=")[-1].split("&")[0]
+    elif "embed/" in link:
+        video_id = link.split("embed/")[-1].split("?")[0].split("&")[0]
+    else:
+        video_id = link.strip()
     if not video_id or len(video_id) < 3:
         return None
 
