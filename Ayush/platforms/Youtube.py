@@ -121,17 +121,17 @@ def get_saavn_stream_sync(song_id: str) -> dict:
 
 
 async def search_via_saavn(query: str) -> dict:
-    """Primary JioSaavn search engine. Instant 0.2s, 320kbps HD audio."""
+    """Primary JioSaavn search engine. Instant 0.2s, 320kbps HD audio with exact song duration."""
     clean = str(query).replace("saavn_", "").strip()
     if not clean or len(clean) < 2:
         return None
     loop = asyncio.get_event_loop()
 
-    # If it's a song ID (no spaces, <= 12 chars), get details directly
+    # 1. If it's a song ID (no spaces, <= 12 chars), get details directly
     if len(clean) <= 12 and not " " in clean:
         stream_data = await loop.run_in_executor(None, lambda: get_saavn_stream_sync(clean))
         if stream_data and stream_data.get("title"):
-            dur = stream_data.get("duration", 240)
+            dur = stream_data.get("duration", 0) or 240
             thumb = stream_data.get("thumb") or stream_data.get("thumbnail") or f"https://c.saavncdn.com/{clean}.jpg"
             return {
                 "id": clean,
@@ -142,7 +142,7 @@ async def search_via_saavn(query: str) -> dict:
                 "source": "saavn"
             }
 
-    # Text search on JioSaavn autocomplete
+    # 2. Text search on JioSaavn autocomplete
     try:
         encoded = urllib.parse.quote(clean)
         url = f"https://www.jiosaavn.com/api.php?__call=autocomplete.get&_marker=0&query={encoded}&ctx=web6dot0"
@@ -156,21 +156,34 @@ async def search_via_saavn(query: str) -> dict:
                         sid = top.get("id")
                         title = top.get("title", "").replace("&quot;", '"').replace("&#039;", "'")
                         thumb = top.get("image", "").replace("50x50", "500x500").replace("150x150", "500x500")
-                        more_info = top.get("more_info", {})
-                        duration = int(more_info.get("duration", 240) or 240)
+
+                        # Fetch exact duration & full title from get_saavn_stream_sync
+                        exact_dur = 0
+                        try:
+                            sdata = await loop.run_in_executor(None, lambda: get_saavn_stream_sync(sid))
+                            if sdata:
+                                exact_dur = sdata.get("duration", 0)
+                                if sdata.get("title"):
+                                    title = sdata["title"]
+                                if sdata.get("thumb"):
+                                    thumb = sdata["thumb"]
+                        except Exception:
+                            pass
+
+                        if not exact_dur:
+                            exact_dur = 240
+
                         return {
                             "id": sid,
                             "title": title,
                             "thumb": thumb,
-                            "duration": duration,
-                            "duration_min": f"{duration // 60}:{duration % 60:02d}",
+                            "duration": exact_dur,
+                            "duration_min": f"{exact_dur // 60}:{exact_dur % 60:02d}",
                             "source": "saavn"
                         }
     except Exception as e:
         print(f"[SAAVN SEARCH ERROR] {e}")
     return None
-
-
 def local_ytdlp_search(query: str, limit: int = 1) -> list:
     """Primary high-precision YouTube search using Android & iOS clients.
     Finds 100% of Pakistani OSTs, Coke Studio, Bollywood, remixes, and live music."""
