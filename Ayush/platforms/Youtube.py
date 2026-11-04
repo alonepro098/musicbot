@@ -296,32 +296,7 @@ async def download_song(link: str) -> str:
             except Exception as e:
                 print(f"[SAAVN DOWNLOAD ERROR] {e}")
 
-    # 2. Download from AayuBots API (Render)
-    if API_URL:
-        params = {"url": video_id, "type": "audio", "api_key": API_KEY}
-        headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
-        for attempt in range(2):
-            try:
-                print(f"[API] Downloading audio {video_id} via {API_URL} (Attempt {attempt+1})...")
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        f"{API_URL}/download",
-                        params=params,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=45)
-                    ) as resp:
-                        if resp.status == 200:
-                            with open(file_path, "wb") as f:
-                                async for chunk in resp.content.iter_chunked(262144):
-                                    f.write(chunk)
-                            if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
-                                print(f"[API SUCCESS] Downloaded {file_path} ({os.path.getsize(file_path)} bytes)")
-                                return file_path
-            except Exception as e:
-                print(f"[API ERROR] Download attempt {attempt+1} failed: {e}")
-            await asyncio.sleep(1)
-
-    # 3. Fallback to direct yt-dlp
+    # 2. Direct yt-dlp with Android/iOS client (Instant 2s download, zero cookies, no IP ban)
     try:
         temp_yt = os.path.join(DOWNLOAD_DIR, f"yt_{video_id}.%(ext)s")
         ydl_opts = {
@@ -329,7 +304,7 @@ async def download_song(link: str) -> str:
             "outtmpl": temp_yt,
             "quiet": True,
             "no_warnings": True,
-            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+            "extractor_args": {"youtube": {"player_client": ["android", "ios"]}},
         }
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
@@ -341,9 +316,31 @@ async def download_song(link: str) -> str:
                         try: os.remove(file_path)
                         except Exception: pass
                     os.rename(found, file_path)
+                    print(f"[YOUTUBE SUCCESS] Downloaded {file_path} ({os.path.getsize(file_path)} bytes)")
                     return file_path
     except Exception as e:
-        print(f"[FALLBACK ERROR] Direct download failed: {e}")
+        print(f"[YOUTUBE ERROR] Direct download failed: {e}")
+
+    # 3. Fallback to AayuBots API (Render)
+    if API_URL:
+        params = {"url": video_id, "type": "audio", "api_key": API_KEY}
+        headers = {"X-API-KEY": API_KEY, "User-Agent": "Mozilla/5.0"}
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{API_URL}/download",
+                    params=params,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as resp:
+                    if resp.status == 200:
+                        with open(file_path, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(262144):
+                                f.write(chunk)
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                            return file_path
+        except Exception:
+            pass
 
     return None
 
@@ -673,3 +670,4 @@ class YouTubeAPI:
 
 
 YouTube = YouTubeAPI()
+
