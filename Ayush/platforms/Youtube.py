@@ -155,7 +155,7 @@ def local_ytdlp_search(query: str, limit: int = 1) -> list:
     Finds 100% of Pakistani OSTs, Coke Studio, Bollywood, remixes, and live music."""
     try:
         ydl_opts = {
-            "format": "bestaudio/best",
+            "format": "18/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
             "extract_flat": True,
@@ -273,7 +273,7 @@ async def download_song(link: str) -> str:
     try:
         temp_yt = os.path.join(DOWNLOAD_DIR, f"yt_{video_id}.%(ext)s")
         ydl_opts = {
-            "format": "bestaudio/best",
+            "format": "18/bestaudio/best",
             "outtmpl": temp_yt,
             "quiet": True,
             "no_warnings": True,
