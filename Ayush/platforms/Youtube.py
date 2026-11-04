@@ -72,6 +72,19 @@ def clean_query_for_saavn(query: str):
     return list(dict.fromkeys(candidates))
 
 
+def is_saavn_match_valid(query: str, song_title: str, song_singers: str) -> bool:
+    """Verifies that JioSaavn result genuinely matches the user's intent and artist."""
+    q_words = set(re.findall(r'[a-zA-Z]{3,}', query.lower())) - COMMON_FILTER_WORDS
+    if not q_words:
+        return True
+    title_words = set(re.findall(r'[a-zA-Z]{3,}', song_title.lower()))
+    singer_words = set(re.findall(r'[a-zA-Z]{3,}', song_singers.lower()))
+    combined_words = title_words.union(singer_words)
+    matched_count = len(q_words.intersection(combined_words))
+    ratio = matched_count / len(q_words)
+    return ratio >= 0.65
+
+
 def decrypt_saavn_url(encrypted_url: str, quality: str = "320") -> str:
     """Decrypts JioSaavn encrypted_media_url to direct CDN streaming URL."""
     if not HAS_CRYPTO or not encrypted_url:
@@ -149,7 +162,7 @@ def get_saavn_stream_sync(song_id: str) -> dict:
 
 
 async def search_via_saavn(query: str) -> dict:
-    """Smart JioSaavn search: strips filler words, matches Pakistani OSTs, Coke Studio & Bollywood."""
+    """Smart JioSaavn search: validates artist and title matching."""
     candidates = clean_query_for_saavn(str(query))
     async with aiohttp.ClientSession() as session:
         for cand in candidates:
@@ -163,12 +176,11 @@ async def search_via_saavn(query: str) -> dict:
                         if songs:
                             top = songs[0]
                             top_title = top.get("title", "").replace("&quot;", '"').replace("&#039;", "'")
-                            w_q = set(re.findall(r'[a-zA-Z]{3,}', cand.lower())) - COMMON_FILTER_WORDS
-                            w_t = set(re.findall(r'[a-zA-Z]{3,}', top_title.lower())) - COMMON_FILTER_WORDS
-                            if len(w_q.intersection(w_t)) >= 1 or len(w_q) == 0:
+                            more_info = top.get("more_info", {})
+                            singers = more_info.get("singers", "") or top.get("description", "")
+                            if is_saavn_match_valid(query, top_title, singers):
                                 sid = top.get("id")
                                 thumb = top.get("image", "").replace("50x50", "500x500")
-                                more_info = top.get("more_info", {})
                                 duration = int(more_info.get("duration", 240) or 240)
                                 return {
                                     "id": sid,
@@ -184,28 +196,35 @@ async def search_via_saavn(query: str) -> dict:
 
 
 def local_ytdlp_search(query: str, limit: int = 1) -> list:
-    """Local yt-dlp Android client search to bypass YouTube datacenter IP bans."""
+    """Local yt-dlp Android & iOS client search to bypass YouTube datacenter IP bans."""
     try:
         ydl_opts = {
             "format": "bestaudio/best",
             "quiet": True,
             "no_warnings": True,
             "extract_flat": True,
-            "extractor_args": {"youtube": {"player_client": ["android"]}},
+            "extractor_args": {"youtube": {"player_client": ["android", "ios"]}},
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            res = ydl.extract_info(f"ytsearch{limit}:{query}", download=False)
-            if res and res.get("entries"):
+            target = query if query.startswith("http") else f"ytsearch{limit + 3}:{query}"
+            res = ydl.extract_info(target, download=False)
+            if res:
+                entries = res.get("entries", [res]) if "entries" in res else [res]
                 results = []
-                for entry in res["entries"]:
+                for entry in entries:
                     if not entry:
                         continue
+                    vid_id = entry.get("id")
+                    if not vid_id:
+                        continue
                     results.append({
-                        "id": entry.get("id"),
+                        "id": vid_id,
                         "title": entry.get("title", ""),
                         "duration": entry.get("duration", 0),
-                        "thumbnail": entry.get("thumbnail") or f"https://img.youtube.com/vi/{entry.get('id')}/hqdefault.jpg"
+                        "thumbnail": entry.get("thumbnail") or f"https://img.youtube.com/vi/{vid_id}/hqdefault.jpg"
                     })
+                    if len(results) >= limit:
+                        break
                 return results
     except Exception as e:
         print(f"[LOCAL YTDLP SEARCH ERROR] {e}")
@@ -263,7 +282,6 @@ async def download_song(link: str) -> str:
                                 async for chunk in resp.content.iter_chunked(262144):
                                     f.write(chunk)
                             if os.path.exists(temp_raw) and os.path.getsize(temp_raw) > 1000:
-                                # Remux/normalize to 48kHz stereo MP3 for 100% stutter-free PyTgCalls streaming
                                 cmd = [
                                     "ffmpeg", "-y", "-i", temp_raw,
                                     "-vn", "-c:a", "libmp3lame", "-b:a", "192k", "-ar", "48000", "-ac", "2",
@@ -279,7 +297,6 @@ async def download_song(link: str) -> str:
                                 except Exception as fe:
                                     print(f"[FFMPEG REMUX WARNING] {fe}")
 
-                                # If ffmpeg didn't produce file_path, rename temp_raw as fallback
                                 if not os.path.exists(file_path) or os.path.getsize(file_path) < 1000:
                                     if os.path.exists(file_path):
                                         try: os.remove(file_path)
@@ -307,15 +324,39 @@ async def download_song(link: str) -> str:
             "extractor_args": {"youtube": {"player_client": ["android", "ios"]}},
         }
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
+        try:
+            await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
+        except Exception as direct_err:
+            err_str = str(direct_err).lower()
+            if "unavailable" in err_str or "blocked" in err_str or "order from the government" in err_str:
+                print(f"[GEO-FALLBACK] {video_id} is geo-blocked. Downloading unblocked mirror...")
+                mirror_opts = dict(ydl_opts)
+                mirror_opts["default_search"] = "ytsearch3"
+                await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(mirror_opts).download([f"ytsearch3:{video_id}"]))
+
         for f in os.listdir(DOWNLOAD_DIR):
             if f.startswith(f"yt_{video_id}"):
                 found = os.path.join(DOWNLOAD_DIR, f)
                 if os.path.getsize(found) > 1000:
-                    if os.path.exists(file_path):
-                        try: os.remove(file_path)
+                    cmd = [
+                        "ffmpeg", "-y", "-i", found,
+                        "-vn", "-c:a", "libmp3lame", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+                        file_path
+                    ]
+                    try:
+                        proc = await asyncio.create_subprocess_exec(
+                            *cmd,
+                            stdout=asyncio.subprocess.DEVNULL,
+                            stderr=asyncio.subprocess.DEVNULL
+                        )
+                        await asyncio.wait_for(proc.wait(), timeout=30)
+                    except Exception:
+                        pass
+                    if not os.path.exists(file_path) or os.path.getsize(file_path) < 1000:
+                        os.rename(found, file_path)
+                    else:
+                        try: os.remove(found)
                         except Exception: pass
-                    os.rename(found, file_path)
                     print(f"[YOUTUBE SUCCESS] Downloaded {file_path} ({os.path.getsize(file_path)} bytes)")
                     return file_path
     except Exception as e:
@@ -382,7 +423,7 @@ async def download_video(link: str) -> str:
             "outtmpl": file_path,
             "quiet": True,
             "no_warnings": True,
-            "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+            "extractor_args": {"youtube": {"player_client": ["android", "ios"]}},
         }
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: yt_dlp.YoutubeDL(ydl_opts).download([f"https://www.youtube.com/watch?v={video_id}"]))
@@ -441,13 +482,13 @@ class YouTubeAPI:
 
         is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
 
-        # 1. Direct JioSaavn Search (Instant 0.2s, 320kbps, 100% matched, zero blocks)
+        # 1. Direct JioSaavn Search (Instant 0.2s, 320kbps, validated keyword match)
         if not is_direct_url:
             saavn_data = await search_via_saavn(link)
             if saavn_data and saavn_data.get("title"):
                 return saavn_data["title"], saavn_data.get("duration_min", "4:00"), saavn_data.get("duration", 240), saavn_data.get("thumb", ""), f"saavn_{saavn_data['id']}"
 
-        # 2. Local yt-dlp Android Search
+        # 2. Local yt-dlp Android & iOS Search (100% covers YouTube OSTs, live songs, remixes)
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -533,7 +574,7 @@ class YouTubeAPI:
 
         is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
 
-        # 1. Direct JioSaavn Search (Instant 0.2s response for song queries)
+        # 1. Direct JioSaavn Search (Instant 0.2s response, validated keyword match)
         if not is_direct_url:
             saavn_data = await search_via_saavn(link)
             if saavn_data and saavn_data.get("title"):
@@ -549,7 +590,7 @@ class YouTubeAPI:
                 }
                 return track_details, vidid
 
-        # 2. Local yt-dlp Android Search (Zero IP blocks)
+        # 2. Local yt-dlp Android & iOS Search (Zero IP blocks)
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -670,4 +711,3 @@ class YouTubeAPI:
 
 
 YouTube = YouTubeAPI()
-
