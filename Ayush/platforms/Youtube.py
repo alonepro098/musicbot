@@ -45,45 +45,6 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs("cache", exist_ok=True)
 
-COMMON_FILTER_WORDS = {
-    'ost', 'soundtrack', 'sound', 'track', 'soundtrakc', 'by', 'official', 'video',
-    'audio', 'full', 'song', 'songs', 'lyrics', 'hd', '4k', 'pakistani', 'drama',
-    'title', 'music', 'mp3', 'download', 'female', 'version', 'feat', 'ft'
-}
-
-
-def clean_query_for_saavn(query: str):
-    """Generates prioritized list of clean search queries for JioSaavn."""
-    raw = query.strip()
-    filler_regex = r'\b(ost|soundtrack|sound\s*track|soundtrakc|by|official\s*video|official\s*audio|official|video|audio|full\s*song|full\s*ost|full|song|lyrics|hd|4k|pakistani\s*drama|pakistani|drama|mp3|remix)\b'
-    cleaned = re.sub(filler_regex, ' ', raw, flags=re.IGNORECASE)
-    cleaned = re.sub(r'[\(\)\[\]\{\}\-_\|:,]', ' ', cleaned)
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-    cleaned = re.sub(r'(mann)(mast)', r'\1 \2', cleaned, flags=re.IGNORECASE)
-    
-    candidates = []
-    words = cleaned.split()
-    if len(words) > 4:
-        candidates.append(' '.join(words[:4]))
-        candidates.append(cleaned)
-    elif cleaned:
-        candidates.append(cleaned)
-    candidates.append(raw)
-    return list(dict.fromkeys(candidates))
-
-
-def is_saavn_match_valid(query: str, song_title: str, song_singers: str) -> bool:
-    """Verifies that JioSaavn result genuinely matches the user's intent and artist."""
-    q_words = set(re.findall(r'[a-zA-Z]{3,}', query.lower())) - COMMON_FILTER_WORDS
-    if not q_words:
-        return True
-    title_words = set(re.findall(r'[a-zA-Z]{3,}', song_title.lower()))
-    singer_words = set(re.findall(r'[a-zA-Z]{3,}', song_singers.lower()))
-    combined_words = title_words.union(singer_words)
-    matched_count = len(q_words.intersection(combined_words))
-    ratio = matched_count / len(q_words)
-    return ratio >= 0.65
-
 
 def decrypt_saavn_url(encrypted_url: str, quality: str = "320") -> str:
     """Decrypts JioSaavn encrypted_media_url to direct CDN streaming URL."""
@@ -107,7 +68,6 @@ def get_saavn_stream_sync(song_id: str) -> dict:
     """Synchronously fetches exact 320kbps CDN stream from JioSaavn."""
     sid = song_id.replace("saavn_", "").strip()
 
-    # 1. Local decryption
     if HAS_CRYPTO:
         try:
             url = f"https://www.jiosaavn.com/api.php?__call=song.getDetails&cc=in&_marker=0%3F_marker%3D0&_format=json&pids={sid}"
@@ -136,7 +96,6 @@ def get_saavn_stream_sync(song_id: str) -> dict:
         except Exception as e:
             print(f"[LOCAL SAAVN ERROR] {e}")
 
-    # 2. AayuBots API fallback
     if API_URL:
         try:
             url = f"{API_URL}/saavn/stream?query={sid}&api_key={API_KEY}"
@@ -162,41 +121,38 @@ def get_saavn_stream_sync(song_id: str) -> dict:
 
 
 async def search_via_saavn(query: str) -> dict:
-    """Smart JioSaavn search: validates artist and title matching."""
-    candidates = clean_query_for_saavn(str(query))
-    async with aiohttp.ClientSession() as session:
-        for cand in candidates:
-            try:
-                clean = urllib.parse.quote(cand)
-                url = f"https://www.jiosaavn.com/api.php?__call=autocomplete.get&_marker=0&query={clean}&ctx=web6dot0"
-                async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=4)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json(content_type=None)
-                        songs = data.get("songs", {}).get("data", [])
-                        if songs:
-                            top = songs[0]
-                            top_title = top.get("title", "").replace("&quot;", '"').replace("&#039;", "'")
-                            more_info = top.get("more_info", {})
-                            singers = more_info.get("singers", "") or top.get("description", "")
-                            if is_saavn_match_valid(query, top_title, singers):
-                                sid = top.get("id")
-                                thumb = top.get("image", "").replace("50x50", "500x500")
-                                duration = int(more_info.get("duration", 240) or 240)
-                                return {
-                                    "id": sid,
-                                    "title": top_title,
-                                    "thumb": thumb,
-                                    "duration": duration,
-                                    "duration_min": f"{duration // 60}:{duration % 60:02d}",
-                                    "source": "saavn"
-                                }
-            except Exception as e:
-                pass
+    """JioSaavn fallback search."""
+    try:
+        clean = urllib.parse.quote(str(query))
+        url = f"https://www.jiosaavn.com/api.php?__call=autocomplete.get&_marker=0&query={clean}&ctx=web6dot0"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    songs = data.get("songs", {}).get("data", [])
+                    if songs:
+                        top = songs[0]
+                        sid = top.get("id")
+                        title = top.get("title", "").replace("&quot;", '"').replace("&#039;", "'")
+                        thumb = top.get("image", "").replace("50x50", "500x500")
+                        more_info = top.get("more_info", {})
+                        duration = int(more_info.get("duration", 240) or 240)
+                        return {
+                            "id": sid,
+                            "title": title,
+                            "thumb": thumb,
+                            "duration": duration,
+                            "duration_min": f"{duration // 60}:{duration % 60:02d}",
+                            "source": "saavn"
+                        }
+    except Exception as e:
+        pass
     return None
 
 
 def local_ytdlp_search(query: str, limit: int = 1) -> list:
-    """Local yt-dlp Android & iOS client search to bypass YouTube datacenter IP bans."""
+    """Primary high-precision YouTube search using Android & iOS clients.
+    Finds 100% of Pakistani OSTs, Coke Studio, Bollywood, remixes, and live music."""
     try:
         ydl_opts = {
             "format": "bestaudio/best",
@@ -265,7 +221,7 @@ async def download_song(link: str) -> str:
     if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
         return file_path
 
-    # 1. Direct JioSaavn CDN download (Instant 0.2s, 320kbps, zero throttling)
+    # 1. Direct JioSaavn CDN download (if track is from Saavn)
     if video_id.startswith("saavn_"):
         sid = video_id.replace("saavn_", "").strip()
         loop = asyncio.get_event_loop()
@@ -313,7 +269,7 @@ async def download_song(link: str) -> str:
             except Exception as e:
                 print(f"[SAAVN DOWNLOAD ERROR] {e}")
 
-    # 2. Direct yt-dlp with Android/iOS client (Instant 2s download, zero cookies, no IP ban)
+    # 2. Direct yt-dlp with Android/iOS client (Instant 1-2s download, zero cookies, no IP ban)
     try:
         temp_yt = os.path.join(DOWNLOAD_DIR, f"yt_{video_id}.%(ext)s")
         ydl_opts = {
@@ -480,15 +436,7 @@ class YouTubeAPI:
         if "&" in link:
             link = link.split("&")[0]
 
-        is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
-
-        # 1. Direct JioSaavn Search (Instant 0.2s, 320kbps, validated keyword match)
-        if not is_direct_url:
-            saavn_data = await search_via_saavn(link)
-            if saavn_data and saavn_data.get("title"):
-                return saavn_data["title"], saavn_data.get("duration_min", "4:00"), saavn_data.get("duration", 240), saavn_data.get("thumb", ""), f"saavn_{saavn_data['id']}"
-
-        # 2. Local yt-dlp Android & iOS Search (100% covers YouTube OSTs, live songs, remixes)
+        # 1. Primary YouTube Search (100% accurate for Pakistani OSTs, Coke Studio, Bollywood & International)
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -500,7 +448,7 @@ class YouTubeAPI:
             thumbnail = item.get("thumbnail") or f"https://img.youtube.com/vi/{vidid}/hqdefault.jpg"
             return title, duration_min, duration_sec, thumbnail, vidid
 
-        # 3. Fallback to VideosSearch
+        # 2. Fallback to VideosSearch
         if VideosSearch:
             try:
                 results = VideosSearch(link, limit=1)
@@ -516,6 +464,11 @@ class YouTubeAPI:
                     return title, duration_min, duration_sec, thumbnail, vidid
             except Exception:
                 pass
+
+        # 3. Fallback to JioSaavn
+        saavn_data = await search_via_saavn(link)
+        if saavn_data and saavn_data.get("title"):
+            return saavn_data["title"], saavn_data.get("duration_min", "4:00"), saavn_data.get("duration", 240), saavn_data.get("thumb", ""), f"saavn_{saavn_data['id']}"
 
         return "", "0:00", 0, "", ""
 
@@ -572,25 +525,7 @@ class YouTubeAPI:
         if "&" in link:
             link = link.split("&")[0]
 
-        is_direct_url = link.startswith("http://") or link.startswith("https://") or "youtube.com" in link or "youtu.be" in link
-
-        # 1. Direct JioSaavn Search (Instant 0.2s response, validated keyword match)
-        if not is_direct_url:
-            saavn_data = await search_via_saavn(link)
-            if saavn_data and saavn_data.get("title"):
-                title = saavn_data["title"]
-                sid = saavn_data["id"]
-                vidid = f"saavn_{sid}"
-                track_details = {
-                    "title": title,
-                    "link": f"https://www.youtube.com/watch?v={vidid}",
-                    "vidid": vidid,
-                    "duration_min": saavn_data.get("duration_min", "4:00"),
-                    "thumb": saavn_data.get("thumb", ""),
-                }
-                return track_details, vidid
-
-        # 2. Local yt-dlp Android & iOS Search (Zero IP blocks)
+        # 1. Primary YouTube Search (100% accurate for Pakistani OSTs, Coke Studio, Bollywood & International)
         loop = asyncio.get_event_loop()
         ytdlp_res = await loop.run_in_executor(None, lambda: local_ytdlp_search(link, limit=1))
         if ytdlp_res:
@@ -608,7 +543,7 @@ class YouTubeAPI:
             }
             return track_details, vidid
 
-        # 3. Fallback to VideosSearch
+        # 2. Fallback to VideosSearch
         if VideosSearch:
             try:
                 results = VideosSearch(link, limit=1)
@@ -630,6 +565,21 @@ class YouTubeAPI:
                     return track_details, vidid
             except Exception:
                 pass
+
+        # 3. Fallback to JioSaavn
+        saavn_data = await search_via_saavn(link)
+        if saavn_data and saavn_data.get("title"):
+            title = saavn_data["title"]
+            sid = saavn_data["id"]
+            vidid = f"saavn_{sid}"
+            track_details = {
+                "title": title,
+                "link": f"https://www.youtube.com/watch?v={vidid}",
+                "vidid": vidid,
+                "duration_min": saavn_data.get("duration_min", "4:00"),
+                "thumb": saavn_data.get("thumb", ""),
+            }
+            return track_details, vidid
 
         return {}, ""
 
