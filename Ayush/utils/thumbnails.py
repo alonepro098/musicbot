@@ -371,7 +371,7 @@ def gen_thumb_style3(yt, title, duration, views, videoid, user_img=None):
 
 
 # ================= MAIN =================
-async def get_thumb(videoid, user_id=None, custom_thumb=None):
+async def get_thumb(videoid, user_id=None, custom_thumb=None, title=None, duration=None):
     global THUMB_COUNTER
     os.makedirs('cache', exist_ok=True)
     out_file = f"cache/{videoid}_{user_id}.png" if user_id else f"cache/{videoid}.png"
@@ -425,21 +425,37 @@ async def get_thumb(videoid, user_id=None, custom_thumb=None):
         return temp_file
 
     # Metadata
-    title = f"Track {videoid}"
-    duration = "03:45"
-    views = "1.2M"
+    clean_meta_title = clean_title(title) if title else ""
+    meta_dur = duration if duration else ""
+    views = "320kbps HD"
 
-    try:
-        url = f"https://www.youtube.com/watch?v={videoid}"
-        results = VideosSearch(url, limit=1)
-        res = await results.next()
-        if res and res.get("result"):
-            data = res["result"][0]
-            title = clean_title(data.get("title", title))
-            duration = data.get("duration", duration)
-            views = data.get("viewCount", {}).get("short", views)
-    except Exception:
-        pass
+    if str(videoid).startswith("saavn_"):
+        sid = str(videoid).replace("saavn_", "").strip()
+        views = "320kbps HD"
+        if not clean_meta_title or not meta_dur:
+            try:
+                from Ayush.platforms.Youtube import get_saavn_stream_sync
+                sdata = get_saavn_stream_sync(sid)
+                if sdata:
+                    clean_meta_title = clean_meta_title or clean_title(sdata.get("title", ""))
+                    meta_dur = meta_dur or sdata.get("duration_min", "")
+            except Exception:
+                pass
+    else:
+        try:
+            url = f"https://www.youtube.com/watch?v={videoid}"
+            results = VideosSearch(url, limit=1)
+            res = await results.next()
+            if res and res.get("result"):
+                data = res["result"][0]
+                clean_meta_title = clean_meta_title or clean_title(data.get("title", ""))
+                meta_dur = meta_dur or data.get("duration", "03:45")
+                views = data.get("viewCount", {}).get("short", "1.2M")
+        except Exception:
+            pass
+
+    title = clean_meta_title or "Playing Music"
+    duration = meta_dur or "03:45"
 
     user_img = await _get_user_dp(user_id)
 
